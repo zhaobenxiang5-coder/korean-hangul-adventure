@@ -1,0 +1,67 @@
+/* 🎨 韩语字母之旅 - 样式表 */
+
+/* 全局样式 */
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Noto Sans KR', 'Barlow', sans-serif;
+    background-color: #F7F7F7;
+    overflow: hidden;
+}
+
+#game-container {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Phaser画布 */
+canvas {
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    #game-container {
+        padding: 10px;
+    }
+    
+    canvas {
+        max-width: 100%;
+        max-height: 100%;
+        border-radius: 12px;
+    }
+}
+
+/* 动画 */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-10px); }
+    75% { transform: translateX(10px); }
+}
+
+.shake {
+    animation: shake 0.3s ease-in-out;
+}
+
+@keyframes popIn {
+    from { transform: scale(0.8); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+.pop-in {
+    animation: popIn 0.3s ease-out;
+}
+
+/* 渐变背景 */
+.gradient-bg {
+    background: linear-gradient(135deg, #FF6B6B 0%, #4ECDC4 100%);
+}
