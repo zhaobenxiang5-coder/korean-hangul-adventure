@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎮 韩语字母之旅 - Level 1 MVP (离线版)</title>
+    <script src="phaser.min.js"></script>
+    <style>
+/* 📝 内联所有样式 (styles.css + mobile.css) */
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body {
+    margin: 0; padding: 0; font-family: 'Noto Sans KR', 'Barlow', sans-serif;
+    background-color: #F7F7F7; overflow: hidden; min-height: 100vh;
+}
+#game-container {
+    width: 100vw; height: 100vh; height: 100dvh;
+    display: flex; justify-content: center; align-items: center;
+    position: fixed; top: 0; left: 0; background: #F7F7F7;
+}
+#game-container canvas {
+    width: 100% !important; height: 100% !important;
+    border-radius: 0;
+}
+@media (max-width: 768px) {
+    #game-container canvas {
+        max-width: 90vw; max-height: 90vh; border-radius: 12px;
+    }
+}
+.btn {
+    font-family: 'Barlow', sans-serif; font-weight: 600;
+    padding: 12px 32px; border-radius: 9999px;
+    border: none; cursor: pointer; transition: transform 0.1s;
+}
+.btn:hover { transform: scale(1.05); }
+.btn:active { transform: scale(0.98); }
+.text-2xl { font-size: 1.5rem; line-height: 1.75rem; }
+.text-4xl { font-size: 2.25rem; line-height: 2.5rem; }
+.text-6xl { font-size: 3.75rem; line-height: 4rem; }
+.font-bold { font-weight: 700; }
+.text-gray-800 { color: #1F2937; }
+.text-gray-600 { color: #4B5563; }
+.text-white { color: #FFFFFF; }
+.bg-white { background-color: #FFFFFF; }
+.bg-red-500 { background-color: #EF4444; }
+.bg-green-500 { background-color: #10B981; }
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.items-center { align-items: center; }
+.justify-center { justify-content: center; }
+.gap-4 { gap: 1rem; }
+.gap-6 { gap: 1.5rem; }
+.p-8 { padding: 2rem; }
+.rounded-xl { border-radius: 0.75rem; }
+.shadow-lg { box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+.mb-4 { margin-bottom: 1rem; }
+.mb-6 { margin-bottom: 1.5rem; }
+.mt-4 { margin-top: 1rem; }
+.mt-8 { margin-top: 2rem; }
+.text-sm { font-size: 0.875rem; line-height: 1.25rem; }
+.absolute { position: absolute; }
+.top-4 { top: 1rem; }
+.right-4 { right: 1rem; }
+.z-50 { z-index: 50; }
+    </style>
+</head>
+<body>
+    <div id="game-container"></div>
+
+    <script>
+// 📦 内联所有JavaScript (content.js, storage.js, sag-integration.js, progress-handler.js, test-runner.js, game.js)
+
+// ========== content.js (字母数据) ==========
+const HANGUL_DATA = [
+    { id: 'ㅏ', type: 'vowel', name: '아', sound: 'a', description: '嘴巴张大，像发"啊"音' },
+    { id: 'ㅓ', type: 'vowel', name: '어', sound: 'eo', description: '嘴巴稍微收圆，像发"哦"音' },
+    { id: 'ㅗ', type: 'vowel', name: '오', sound: 'o', description: '嘴唇圆形，像发"哦"音' },
+    { id: 'ㅜ', type: 'vowel', name: '우', sound: 'u', description: '嘴唇圆形，像发"呜"音' },
+    { id: 'ㅡ', type: 'vowel', name: '으', sound: 'eu', description: '扁平嘴型，像发"诶"音' },
+    { id: 'ㅣ', type: 'vowel', name: '이', sound: 'i', description: '微笑嘴型，像发"衣"音' }
+];
+
+// ========== storage.js (进度保存) ==========
+const Storage = {
+    getProgress: () => {
+        try {
+            return JSON.parse(localStorage.getItem('koreanProgress')) || { completed: [], settings: { soundEnabled: true } };
+        } catch { return { completed: [], settings: { soundEnabled: true } }; }
+    },
+    saveProgress: (progress) => {
+        try { localStorage.setItem('koreanProgress', JSON.stringify(progress)); } catch (e) { console.warn('保存失败:', e); }
+    },
+    resetProgress: () => {
+        localStorage.removeItem('koreanProgress');
+        location.reload();
+    }
+};
+
+// ========== sag-integration.js (TTS集成) ==========
+const TTS = {
+    speak: (text, callback) => {
+        if ('speechSynthesis' in window) {
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'ko-KR';
+            utterance.rate = 0.8;
+            utterance.onend = callback || (() => {});
+            speechSynthesis.speak(utterance);
+        } else if (callback) callback();
+    },
+    stop: () => { if ('speechSynthesis' in window) speechSynthesis.cancel(); }
+};
+
+// ========== progress-handler.js ==========
+const ProgressHandler = {
+    updateMenu: () => {
+        const progress = Storage.getProgress();
+        const continueBtn = document.getElementById('continue-btn');
+        if (continueBtn) {
+            if (progress.completed.length > 0) {
+                continueBtn.style.display = 'block';
+            } else {
+                continueBtn.style.display = 'none';
+            }
+        }
+    }
+};
+
+// ========== test-runner.js (测试框架) ==========
+class TestRunner {
+    constructor() {
+        this.tests = [];
+        console.log('🧪 测试环境就绪，等待手动触发...');
+    }
+    register(name, fn) {
+        this.tests.push({ name, fn });
+        console.log(`[Test] 注册: ${name}`);
+    }
+    async runAll() {
+        console.log('🚀 开始运行所有测试...');
+        for (const test of this.tests) {
+            try {
+                await test.fn();
+                console.log(`✅ ${test.name}`);
+            } catch (e) {
+                console.error(`❌ ${test.name}:`, e);
+            }
+        }
+    }
+}
+
+// ========== game.js (游戏主逻辑) ==========
+const GAME_CONFIG = {
+    type: Phaser.AUTO,
+    width: 800,
+    height: 600,
+    parent: 'game-container',
+    backgroundColor: '#F7F7F7',
+    scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+    scene: [] // 稍后填充
+};
+
+const GameState = {
+    level: 1, score: 0, completedLetters: [], currentLetter: null,
+    settings: { soundEnabled: true, fontSize: 24 }
+};
+
+class BootScene extends Phaser.Scene {
+    constructor() { super('BootScene'); }
+    create() {
+        console.log('[BootScene] 启动中...');
+        this.load.image('logo', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==');
+        this.time.delayedCall(500, () => this.scene.start('MenuScene'));
+    }
+}
+
+class MenuScene extends Phaser.Scene {
+    constructor() { super('MenuScene'); }
+    create() {
+        console.log('[MenuScene] 主菜单');
+        const cx = this.cameras.main.centerX, cy = this.cameras.main.centerY;
+        this.add.text(cx, cy - 100, '🎮 韩语字母之旅', { fontSize: '48px', fontFamily: 'Barlow, sans-serif', color: '#333333' }).setOrigin(0.5);
+        this.add.text(cx, cy - 40, 'Level 1: 元音基础', { fontSize: '24px', fontFamily: 'Noto Sans KR, sans-serif', color: '#666666' }).setOrigin(0.5);
+        const startBtn = this.add.text(cx, cy + 30, '▶ 开始学习', {
+            fontSize: '28px', fontFamily: 'Barlow, sans-serif', color: '#FFFFFF',
+            backgroundColor: '#FF6B6B', padding: { x: 40, y: 16 }, borderRadius: '16px'
+        }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+        startBtn.on('pointerdown', () => this.scene.start('LearnScene'));
+        startBtn.on('pointerover', () => startBtn.setScale(1.05));
+        startBtn.on('pointerout', () => startBtn.setScale(1));
+        const gameBtn = this.add.text(cx, cy + 90, '🎮 拼图游戏', {
+            fontSize: '24px', fontFamily: 'Barlow, sans-serif', color: '#4ECDC4',
+            backgroundColor: '#FFFFFF', padding: { x: 30, y: 12 }, borderRadius: '9999px'
+        }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+        gameBtn.on('pointerdown', () => this.scene.start('GameScene'));
+        gameBtn.on('pointerover', () => gameBtn.setScale(1.05));
+        gameBtn.on('pointerout', () => gameBtn.setScale(1));
+        const aboutBtn = this.add.text(cx, cy + 150, 'ℹ️ 关于', {
+            fontSize: '20px', fontFamily: 'Barlow, sans-serif', color: '#666666'
+        }).setOrigin(0.5).setInteractive();
+        aboutBtn.on('pointerdown', () => alert('韩语字母之旅 v0.1 MVP\n© 2026 小星星'));
+        const progress = Storage.getProgress();
+        if (progress.completed.length > 0) {
+            const continueBtn = this.add.text(cx, cy + 200, '▶ 继续学习', {
+                fontSize: '20px', fontFamily: 'Barlow, sans-serif', color: '#10B981',
+                backgroundColor: '#FFFFFF', padding: { x: 30, y: 12 }, borderRadius: '9999px'
+            }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+            continueBtn.on('pointerdown', () => this.scene.start('LearnScene'));
+        }
+        this.add.text(cx, 550, 'v0.1 MVP | © 2026 小星星', { fontSize: '14px', color: '#999999' }).setOrigin(0.5);
+    }
+}
+
+class LearnScene extends Phaser.Scene {
+    constructor() { super('LearnScene'); }
+    create() {
+        console.log('[LearnScene] 学习模式');
+        GameState.currentLetter = HANGUL_DATA[0];
+        this.showLetter();
+    }
+    showLetter() {
+        this.cameras.main.setBackgroundColor('#F7F7F7');
+        const cx = this.cameras.main.centerX, cy = this.cameras.main.centerY;
+        this.add.text(cx, cy - 120, '学习字母', { fontSize: '32px', fontFamily: 'Barlow, sans-serif', color: '#666666' }).setOrigin(0.5);
+        const letter = this.add.text(cx, cy, GameState.currentLetter.id, {
+            fontSize: '200px', fontFamily: 'Noto Sans KR, sans-serif', color: '#FF6B6B', fontStyle: 'bold'
+        }).setOrigin(0.5);
+        this.add.text(cx, cy + 100, GameState.currentLetter.description, { fontSize: '24px', fontFamily: 'Noto Sans KR, sans-serif', color: '#333333' }).setOrigin(0.5).setWordWrap(600);
+        const playBtn = this.add.text(cx, cy + 180, '🔊 播放发音', {
+            fontSize: '24px', fontFamily: 'Barlow, sans-serif', color: '#FFFFFF', backgroundColor: '#4ECDC4', padding: { x: 30, y: 15 }, borderRadius: '9999px'
+        }).setOrigin(0.5).setInteractive();
+        playBtn.on('pointerdown', () => TTS.speak(GameState.currentLetter.name));
+        const nextBtn = this.add.text(cx, cy + 260, '▶ 下一个', {
+            fontSize: '28px', fontFamily: 'Barlow, sans-serif', color: '#10B981', backgroundColor: '#FFFFFF', padding: { x: 40, y: 15 }, borderRadius: '9999px'
+        }).setOrigin(0.5).setInteractive();
+        nextBtn.on('pointerdown', () => {
+            const idx = HANGUL_DATA.findIndex(l => l.id === GameState.currentLetter.id);
+            if (idx < HANGUL_DATA.length - 1) {
+                GameState.currentLetter = HANGUL_DATA[idx + 1];
+                this.showLetter();
+            } else {
+                this.scene.start('CompleteScene');
+            }
+        });
+    }
+}
+
+class GameScene extends Phaser.Scene {
+    constructor() { super('GameScene'); }
+    create() {
+        console.log('[GameScene] 拼图游戏');
+        GameState.currentLetter = HANGUL_DATA[0];
+        this.showPuzzle();
+    }
+    showPuzzle() {
+        this.cameras.main.setBackgroundColor('#F7F7F7');
+        const cx = this.cameras.main.centerX, cy = this.cameras.main.centerY;
+        const letter = this.add.text(cx, cy - 120, `拼出字母: ${GameState.currentLetter.name}`, {
+            fontSize: '48px', fontFamily: 'Noto Sans KR, sans-serif', color: '#333333'
+        }).setOrigin(0.5);
+        const pieces = this.createPieces();
+        const dropZone = this.add.rectangle(cx, cy + 150, 300, 80, 0xEEEEEE).setStrokeStyle(3, 0xCCCCCC);
+        this.add.text(cx, cy + 150, '将字母拖入此处', { fontSize: '18px', color: '#999999' }).setOrigin(0.5);
+        pieces.forEach((piece, i) => {
+            piece.setInteractive({ draggable: true });
+            piece.on('drag', (pointer, dragX, dragY) => piece.setPosition(dragX, dragY));
+            piece.on('dragend', () => {
+                const dist = Phaser.Math.Distance.Between(piece.x, piece.y, dropZone.x, dropZone.y);
+                if (dist < 80) {
+                    if (piece.text === GameState.currentLetter.name) {
+                        dropZone.setFillStyle(0x10B981);
+                        this.time.delayedCall(500, () => {
+                            this.showNextPuzzle();
+                        });
+                    } else {
+                        dropZone.setFillStyle(0xEF4444);
+                        this.time.delayedCall(300, () => piece.setPosition(200 + i * 120, 200));
+                    }
+                } else {
+                    piece.setPosition(200 + i * 120, 200);
+                }
+                dropZone.setFillStyle(0xEEEEEE);
+            });
+        });
+    }
+    createPieces() {
+        const cx = this.cameras.main.centerX;
+        const fragments = GameState.currentLetter.name.split('').map(ch => ({ char: ch, x: 0 }));
+        const pieces = [];
+        fragments.forEach((frag, i) => {
+            const piece = this.add.text(200 + i * 120, 200, frag.char, {
+                fontSize: '80px', fontFamily: 'Noto Sans KR, sans-serif', color: '#FF6B6B',
+                backgroundColor: '#FFFFFF', padding: { x: 20, y: 10 }, borderRadius: '12px'
+            }).setOrigin(0.5).setDepth(1);
+            pieces.push(piece);
+        });
+        return pieces;
+    }
+    showNextPuzzle() {
+        const idx = HANGUL_DATA.findIndex(l => l.id === GameState.currentLetter.id);
+        if (idx < HANGUL_DATA.length - 1) {
+            GameState.currentLetter = HANGUL_DATA[idx + 1];
+            this.scene.restart();
+        } else {
+            this.scene.start('CompleteScene');
+        }
+    }
+}
+
+class CompleteScene extends Phaser.Scene {
+    constructor() { super('CompleteScene'); }
+    create() {
+        console.log('[CompleteScene] 完成');
+        const cx = this.cameras.main.centerX, cy = this.cameras.main.centerY;
+        this.add.text(cx, cy - 80, '🎉 恭喜完成学习！', { fontSize: '64px', fontFamily: 'Barlow, sans-serif', color: '#10B981' }).setOrigin(0.5);
+        this.add.text(cx, cy + 40, '你已掌握所有元音字母', { fontSize: '28px', fontFamily: 'Noto Sans KR, sans-serif', color: '#666666' }).setOrigin(0.5);
+        const progress = Storage.getProgress();
+        if (!progress.completed.includes(1)) {
+            progress.completed.push(1);
+            Storage.saveProgress(progress);
+        }
+        const restartBtn = this.add.text(cx, cy + 140, '🔄 再学一遍', {
+            fontSize: '32px', fontFamily: 'Barlow, sans-serif', color: '#FF6B6B', backgroundColor: '#FFFFFF', padding: { x: 50, y: 20 }, borderRadius: '9999px'
+        }).setOrigin(0.5).setInteractive();
+        restartBtn.on('pointerdown', () => {
+            progress.completed = progress.completed.filter(l => l !== 1);
+            Storage.saveProgress(progress);
+            this.scene.start('MenuScene');
+        });
+        const menuBtn = this.add.text(cx, cy + 220, '🏠 返回菜单', {
+            fontSize: '28px', fontFamily: 'Barlow, sans-serif', color: '#4ECDC4', backgroundColor: '#FFFFFF', padding: { x: 50, y: 20 }, borderRadius: '9999px'
+        }).setOrigin(0.5).setInteractive();
+        menuBtn.on('pointerdown', () => this.scene.start('MenuScene'));
+    }
+}
+
+// ========== 初始化游戏 ==========
+GAME_CONFIG.scene = [BootScene, MenuScene, LearnScene, GameScene, CompleteScene];
+console.log('[game.js] 启动Phaser游戏...');
+try {
+    const game = new Phaser.Game(GAME_CONFIG);
+    console.log('[game.js] ✅ Phaser游戏实例已创建');
+} catch (error) {
+    console.error('[game.js] ❌ Phaser启动失败:', error);
+    document.getElementById('game-container').innerHTML = `<h1 style="color:red">游戏启动失败: ${error.message}</h1>`;
+}
+
+// ========== 测试框架初始化 ==========
+const testRunner = new TestRunner();
+testRunner.register('TC-01 - 游戏启动', async () => {
+    if (typeof Phaser === 'undefined') throw new Error('Phaser未加载');
+    if (!window.game) throw new Error('游戏实例未创建');
+});
+testRunner.register('TC-02 - 字母数据加载', async () => {
+    if (!HANGUL_DATA || HANGUL_DATA.length < 5) throw new Error('字母数据不足');
+});
+testRunner.register('TC-03 - sag TTS封装', async () => {
+    if (typeof TTS.speak !== 'function') throw new Error('TTS功能缺失');
+});
+testRunner.register('TC-04 - 进度处理器', async () => {
+    const progress = Storage.getProgress();
+    if (!progress || !Array.isArray(progress.completed)) throw new Error('进度数据格式错误');
+});
+testRunner.register('TC-05 - 移动端CSS加载', async () => {
+    const container = document.getElementById('game-container');
+    const style = getComputedStyle(container);
+    if (style.display === 'none') throw new Error('容器被隐藏');
+});
+    </script>
+</body>
+</html>
