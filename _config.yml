@@ -1,0 +1,17 @@
+# Jekyll配置（空配置，仅用于GitHub Pages）
+# 我们的项目是纯静态HTML，不需要Jekyll处理
+
+# 禁用Jekyll处理（推荐）
+skip_files:
+  - .git
+  - .github
+  - node_modules
+  - README.md
+  - LICENSE
+
+# 不进行任何转换
+markdown: kramdown
+highlighter: rouge
+
+# -source: ./
+# destination: ./_site
