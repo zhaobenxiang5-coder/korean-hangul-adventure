@@ -69,15 +69,55 @@ body {
     <script>
 // 📦 内联所有JavaScript (content.js, storage.js, sag-integration.js, progress-handler.js, test-runner.js, game.js)
 
-// ========== content.js (字母数据) ==========
+// ========== content-level2.js (完整字母数据) ==========
 const HANGUL_DATA = [
-    { id: 'ㅏ', type: 'vowel', name: '아', sound: 'a', description: '嘴巴张大，像发"啊"音' },
-    { id: 'ㅓ', type: 'vowel', name: '어', sound: 'eo', description: '嘴巴稍微收圆，像发"哦"音' },
-    { id: 'ㅗ', type: 'vowel', name: '오', sound: 'o', description: '嘴唇圆形，像发"哦"音' },
-    { id: 'ㅜ', type: 'vowel', name: '우', sound: 'u', description: '嘴唇圆形，像发"呜"音' },
-    { id: 'ㅡ', type: 'vowel', name: '으', sound: 'eu', description: '扁平嘴型，像发"诶"音' },
-    { id: 'ㅣ', type: 'vowel', name: '이', sound: 'i', description: '微笑嘴型，像发"衣"音' }
+    // 辅音 (19个)
+    { id: 'ㄱ', name: '기역', sound: 'g', description: '舌根音' },
+    { id: 'ㄲ', name: '쌍기역', sound: 'kk', description: '紧音' },
+    { id: 'ㄴ', name: '니은', sound: 'n', description: '舌尖音' },
+    { id: 'ㄷ', name: '디귿', sound: 'd', description: '舌尖塞音' },
+    { id: 'ㄸ', name: '쌍디귿', sound: 'tt', description: '紧音' },
+    { id: 'ㄹ', name: '리을', sound: 'r', description: '闪音' },
+    { id: 'ㅁ', name: '미음', sound: 'm', description: '双唇音' },
+    { id: 'ㅂ', name: '비읍', sound: 'p', description: '双唇塞音' },
+    { id: 'ㅃ', name: '쌍비읍', sound: 'pp', description: '紧音' },
+    { id: 'ㅅ', name: '시옷', sound: 's', description: '齿间音' },
+    { id: 'ㅆ', name: '쌍시옷', sound: 'ss', description: '紧音' },
+    { id: 'ㅇ', name: '이응', sound: 'ng', description: '鼻音' },
+    { id: 'ㅈ', name: '지읒', sound: 'j', description: '塞擦音' },
+    { id: 'ㅉ', name: '쌍지읒', sound: 'jj', description: '紧音' },
+    { id: 'ㅊ', name: '치읓', sound: 'ch', description: '送气音' },
+    { id: 'ㅋ', name: '키읔', sound: 'k', description: '送气音' },
+    { id: 'ㅌ', name: '티읕', sound: 't', description: '送气音' },
+    { id: 'ㅍ', name: '피읖', sound: 'p', description: '送气音' },
+    { id: 'ㅎ', name: '히읗', sound: 'h', description: '声门擦音' },
+    // 元音 (21个) - 按字母顺序
+    { id: 'ㅏ', name: '아', sound: 'a', description: '嘴巴张大' },
+    { id: 'ㅐ', name: '애', sound: 'ae', description: '嘴型偏扁' },
+    { id: 'ㅑ', name: '야', sound: 'ya', description: 'ㅏ + y' },
+    { id: 'ㅒ', name: '얘', sound: 'yae', description: 'ㅐ + y' },
+    { id: 'ㅓ', name: '어', sound: 'eo', description: '嘴稍微收圆' },
+    { id: 'ㅔ', name: '에', sound: 'e', description: '嘴型偏扁' },
+    { id: 'ㅕ', name: '여', sound: 'yeo', description: 'ㅓ + y' },
+    { id: 'ㅖ', name: '예', sound: 'ye', description: 'ㅔ + y' },
+    { id: 'ㅗ', name: '오', sound: 'o', description: '嘴唇圆形' },
+    { id: 'ㅘ', name: '와', sound: 'wa', description: 'ㅗ + ㅏ' },
+    { id: 'ㅙ', name: '왜', sound: 'wae', description: 'ㅗ + ㅐ' },
+    { id: 'ㅚ', name: '외', sound: 'oe', description: 'ㅗ + ㅣ' },
+    { id: 'ㅛ', name: '요', sound: 'yo', description: 'ㅗ + y' },
+    { id: 'ㅜ', name: '우', sound: 'u', description: '嘴唇圆形' },
+    { id: 'ㅝ', name: '워', sound: 'wo', description: 'ㅜ + ㅓ' },
+    { id: 'ㅞ', name: '웨', sound: 'we', description: 'ㅜ + ㅔ' },
+    { id: 'ㅟ', name: '위', sound: 'wi', description: 'ㅜ + ㅣ' },
+    { id: 'ㅠ', name: '유', sound: 'yu', description: 'ㅜ + y' },
+    { id: 'ㅡ', name: '으', sound: 'eu', description: '扁平嘴型' },
+    { id: 'ㅢ', name: '의', sound: 'ui', description: 'ㅡ + ㅣ' },
+    { id: 'ㅣ', name: '이', sound: 'i', description: '微笑嘴型' }
 ];
+
+// 过滤辅音和元音（用于游戏）
+const CONSONANTS = HANGUL_DATA.filter(l => l.id.length === 1 && /[ㄱ-ㅎ]/.test(l.id));
+const VOWELS = HANGUL_DATA.filter(l => l.id.length === 1 && /[ㅏ-ㅣ]/.test(l.id));
 
 // ========== storage.js (进度保存) ==========
 const Storage = {

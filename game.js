@@ -22,15 +22,44 @@ const GameState = {
     level: 1,
     score: 0,
     completedLetters: [],
+    completedLevels: [],
     currentLetter: null,
+    currentIndex: 0,
     settings: {
         soundEnabled: true,
-        fontSize: 24
+        fontSize: 24,
+        ttsEnabled: true
     }
 };
 
-// 字母数据（从content.js加载）
+// 字母数据（从korean-data.js加载）
+// Level 1 使用元音，Level 2 使用完整字母
 let HANGUL_DATA = [];
+let LEVEL_DATA = {};
+
+// 初始化数据
+function initData(level) {
+    if (typeof KOREAN_DATA !== 'undefined') {
+        if (level === 1) {
+            HANGUL_DATA = KOREAN_DATA.vowels; // Level 1 只学元音
+            LEVEL_DATA = { type: 'vowels-only', count: (HANGUL_DATA ? HANGUL_DATA.length : 0) };
+        } else if (level === 2) {
+            HANGUL_DATA = KOREAN_DATA.vowels.concat(KOREAN_DATA.consonants);
+            LEVEL_DATA = { type: 'full-alphabet', count: (HANGUL_DATA ? HANGUL_DATA.length : 0) };
+        }
+    } else {
+        console.warn('KOREAN_DATA 未加载，使用备用数据');
+        HANGUL_DATA = [
+            { id: 'ㅏ', name: '아', sound: 'a', description: '嘴巴张大' },
+            { id: 'ㅓ', name: '어', sound: 'eo', description: '嘴稍微收圆' },
+            { id: 'ㅗ', name: '오', sound: 'o', description: '嘴唇圆形' },
+            { id: 'ㅜ', name: '우', sound: 'u', description: '嘴唇圆形' },
+            { id: 'ㅡ', name: '으', sound: 'eu', description: '扁平嘴型' },
+            { id: 'ㅣ', name: '이', sound: 'i', description: '微笑嘴型' }
+        ];
+    }
+    console.log(`[Data] Level ${level} 数据已加载: ${(HANGUL_DATA ? HANGUL_DATA.length : 0)} 个字母`);
+}
 
 // ========== 场景1: 启动场景 ==========
 class BootScene extends Phaser.Scene {
@@ -104,25 +133,34 @@ class MenuScene extends Phaser.Scene {
             alert('设置面板（开发中）');
         });
 
-        // 继续游戏按钮（如果有存档）
-        if (window.ProgressHandler && window.ProgressHandler.hasSave()) {
-            const continueBtn = this.add.text(cx, cy + 20, '▶ 继续学习', {
-                fontSize: '20px',
-                fontFamily: 'Barlow, sans-serif',
-                color: '#333333',
-                backgroundColor: '#FFE66D',
-                padding: { x: 30, y: 12 },
-                borderRadius: '12px'
-            }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+        // Level 2 按钮 - 音节拼图
+        const syllableBtn = this.add.text(cx, cy + 150, '🔤 音节拼图 (Level 2)', {
+            fontSize: '20px',
+            fontFamily: 'Barlow, sans-serif',
+            color: '#FF6B6B',
+            backgroundColor: '#FFFFFF',
+            padding: { x: 30, y: 12 },
+            borderRadius: '12px'
+        }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+        syllableBtn.on('pointerdown', () => this.scene.start('SyllableScene'));
+        syllableBtn.on('pointerover', () => syllableBtn.setScale(1.05));
+        syllableBtn.on('pointerout', () => syllableBtn.setScale(1));
 
-            continueBtn.on('pointerdown', () => {
-                // 直接进入GameScene，进度已保存
-                this.scene.start('GameScene');
-            });
-        }
+        // Level 2 按钮 - 单词挑战
+        const wordBtn = this.add.text(cx, cy + 210, '📖 单词挑战 (Level 2)', {
+            fontSize: '20px',
+            fontFamily: 'Barlow, sans-serif',
+            color: '#10B981',
+            backgroundColor: '#FFFFFF',
+            padding: { x: 30, y: 12 },
+            borderRadius: '12px'
+        }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+        wordBtn.on('pointerdown', () => this.scene.start('WordScene'));
+        wordBtn.on('pointerover', () => wordBtn.setScale(1.05));
+        wordBtn.on('pointerout', () => wordBtn.setScale(1));
 
         // 版本信息
-        this.add.text(cx, 580, 'v0.1 MVP | © 2026 小星星', {
+        this.add.text(cx, 580, 'v0.2 MVP - Level 2 | © 2026 小星星', {
             fontSize: '12px',
             color: '#999999'
         }).setOrigin(0.5);
@@ -149,7 +187,7 @@ class LearnScene extends Phaser.Scene {
         this.createBackButton(() => this.scene.start('MenuScene'));
 
         // 字母展示
-        const letter = HANGUL_DATA[0]; // 第一个字母
+        const letter = HANGUL_DATA[0] || { id: '?', name: '?', sound: '?', description: '无数据' };
         this.currentIndex = 0;
 
         this.letterText = this.add.text(cx, cy - 50, letter.char, {
@@ -228,7 +266,7 @@ class LearnScene extends Phaser.Scene {
 
     showNextLetter() {
         this.currentIndex++;
-        if (this.currentIndex >= HANGUL_DATA.length) {
+        if (this.currentIndex >= (HANGUL_DATA ? (HANGUL_DATA ? HANGUL_DATA.length : 0) : 0)) {
             this.scene.start('GameScene');
             return;
         }
@@ -252,7 +290,7 @@ class LearnScene extends Phaser.Scene {
             }
         });
 
-        this.pageText.setText(`${this.currentIndex + 1} / ${HANGUL_DATA.length}`);
+        this.pageText.setText(`${this.currentIndex + 1} / ${(HANGUL_DATA ? HANGUL_DATA.length : 0)}`);
     }
 
     async playTTS(text) {
@@ -456,7 +494,7 @@ class GameScene extends Phaser.Scene {
     checkAnswers() {
         this.attempts++;
         let correct = 0;
-        let total = HANGUL_DATA.length;
+        let total = (HANGUL_DATA ? HANGUL_DATA.length : 0);
 
         // 检查每个槽位
         HANGUL_DATA.forEach((targetLetter, index) => {
@@ -661,8 +699,238 @@ class CompleteScene extends Phaser.Scene {
     }
 }
 
+// ========== Level 2: 音节拼图游戏 ==========
+class SyllableScene extends Phaser.Scene {
+    constructor() { super('SyllableScene'); }
+
+    create() {
+        console.log('[SyllableScene] 音节拼图 - Level 2');
+        this.cameras.main.setBackgroundColor('#F7F7F7');
+        const cx = this.cameras.main.centerX, cy = this.cameras.main.centerY;
+        
+        this.add.text(cx, cy - 200, '🔤 音节拼图', {
+            fontSize: '36px', fontFamily: 'Barlow, sans-serif', color: '#333333'
+        }).setOrigin(0.5);
+        
+        this.add.text(cx, cy - 150, '将辅音+元音拖拽组合成音节', {
+            fontSize: '16px', fontFamily: 'Noto Sans KR', color: '#666666'
+        }).setOrigin(0.5);
+        
+        // 随机选择一个辅音和一个元音
+        const consonants = [
+            { char: 'ㄱ', id: 'g' }, { char: 'ㄴ', id: 'n' }, { char: 'ㄷ', id: 'd' },
+            { char: 'ㄹ', id: 'r' }, { char: 'ㅁ', id: 'm' }, { char: 'ㅂ', id: 'b' },
+            { char: 'ㅅ', id: 's' }, { char: 'ㅇ', id: 'ng' }, { char: 'ㅈ', id: 'j' },
+            { char: 'ㅊ', id: 'ch' }, { char: 'ㅋ', id: 'k' }, { char: 'ㅌ', id: 't' },
+            { char: 'ㅍ', id: 'p' }, { char: 'ㅎ', id: 'h' }
+        ];
+        const vowels = HANGUL_DATA;
+        const consonant = Phaser.Utils.Array.GetRandom(consonants);
+        const vowel = Phaser.Utils.Array.GetRandom(vowels);
+        this.targetSyllable = consonant.id + vowel.id;
+        
+        this.add.text(cx, cy - 80, `目标: ${consonant.char} + ${vowel.char}`, {
+            fontSize: '28px', fontFamily: 'Noto Sans KR', color: '#FF6B6B'
+        }).setOrigin(0.5);
+        
+        // drop zone
+        const dropZone = this.add.rectangle(cx, cy + 50, 200, 80, 0xEEEEEE).setStrokeStyle(3, 0xCCCCCC);
+        this.add.text(cx, cy + 50, '拖拽到此处组合', { fontSize: '14px', color: '#999' }).setOrigin(0.5);
+        
+        // 创建可拖拽字母块
+        const startX = 150;
+        const spacing = 150;
+        [consonant, vowel].forEach((letter, idx) => {
+            const piece = this.add.text(startX + idx * spacing, cy + 150, letter.char, {
+                fontSize: '80px', fontFamily: 'Noto Sans KR', color: '#4ECDC4',
+                backgroundColor: '#FFF', padding: { x: 20, y: 10 }, borderRadius: '12px'
+            }).setOrigin(0.5).setInteractive({ draggable: true });
+            piece.letterId = letter.id;
+            piece.letterChar = letter.char;
+            piece.on('drag', (pointer, dragX, dragY) => piece.setPosition(dragX, dragY));
+            piece.on('dragend', () => this.checkDrop(piece, dropZone, cx));
+        });
+        
+        // 返回按钮
+        const backBtn = this.add.text(cx, 550, '← 返回菜单', {
+            fontSize: '16px', fontFamily: 'Barlow', color: '#666'
+        }).setOrigin(0.5).setInteractive();
+        backBtn.on('pointerdown', () => this.scene.start('MenuScene'));
+    }
+    
+    checkDrop(piece, dropZone, cx) {
+        const dist = Phaser.Math.Distance.Between(piece.x, piece.y, dropZone.x, dropZone.y);
+        if (dist < 80) {
+            // 检查拼写
+            const children = dropZone.children.filter(c => c.text && c.letterId);
+            const current = children.map(c => c.letterId).sort().join('');
+            if (current === this.targetSyllable) {
+                dropZone.setFillStyle(0x10B981);
+                this.time.delayedCall(800, () => {
+                    alert('✅ 拼写正确！');
+                    this.scene.start('MenuScene');
+                });
+            } else {
+                dropZone.setFillStyle(0xEF4444);
+                this.time.delayedCall(500, () => piece.setPosition(piece.x < 300 ? 150 : 300, 400));
+            }
+        } else {
+            piece.setPosition(piece.x < 300 ? 150 : 300, 400);
+        }
+        dropZone.setFillStyle(0xEEEEEE);
+    }
+}
+
+// ========== Level 2: 单词挑战 ==========
+class WordScene extends Phaser.Scene {
+    constructor() { super('WordScene'); }
+
+    create() {
+        console.log('[WordScene] 单词挑战 - Level 2');
+        this.cameras.main.setBackgroundColor('#F7F7F7');
+        const cx = this.cameras.main.centerX, cy = this.cameras.main.centerY;
+        
+        this.add.text(cx, cy - 180, '📖 单词挑战', {
+            fontSize: '36px', fontFamily: 'Barlow, sans-serif', color: '#333'
+        }).setOrigin(0.5);
+        
+        // 简单单词库
+        this.words = [
+            { word: '가나다', hint: '韩语基本字母顺序' },
+            { word: '사랑', hint: '爱' },
+            { word: '학교', hint: '学校' },
+            { word: '학생', hint: '学生' },
+            { word: '선생님', hint: '老师' },
+            { word: '감사합니다', hint: '谢谢' }
+        ];
+        this.currentWord = Phaser.Utils.Array.GetRandom(this.words);
+        this.currentScore = 0;
+        this.totalQuestions = 5;
+        
+        this.add.text(cx, cy - 120, `提示: ${this.currentWord.hint}`, {
+            fontSize: '20px', fontFamily: 'Noto Sans KR', color: '#666'
+        }).setOrigin(0.5);
+        
+        this.questionText = this.add.text(cx, cy - 60, '???', {
+            fontSize: '64px', fontFamily: 'Noto Sans KR', color: '#333', fontStyle: 'bold'
+        }).setOrigin(0.5);
+        
+        this.scrambleAndShow();
+        
+        // 答案区域
+        this.answerContainer = this.add.container(cx, cy + 80);
+        this.createAnswerSlots();
+        
+        // 选项区域
+        this.optionsContainer = this.add.container(cx, cy + 180);
+        this.createOptions();
+        
+        // 返回按钮
+        const backBtn = this.add.text(cx, 550, '← 返回菜单', {
+            fontSize: '16px', fontFamily: 'Barlow', color: '#666'
+        }).setOrigin(0.5).setInteractive();
+        backBtn.on('pointerdown', () => this.scene.start('MenuScene'));
+    }
+    
+    scrambleAndShow() {
+        const letters = this.currentWord.word.split('');
+        Phaser.Utils.Array.Shuffle(letters);
+        this.questionText.setText(letters.join(' '));
+    }
+    
+    createAnswerSlots() {
+        this.answerContainer.removeAll(true);
+        this.answerSlots = [];
+        const len = this.currentWord.word.length;
+        const startX = -((len - 1) * 40) / 2;
+        
+        for (let i = 0; i < len; i++) {
+            const slot = this.add.rectangle(startX + i * 40, 0, 38, 38, 0xFFFFFF)
+                .setStrokeStyle(2, 0xAAAAAA);
+            slot.letter = null;
+            this.answerContainer.add(slot);
+            this.answerSlots.push(slot);
+        }
+    }
+    
+    createOptions() {
+        this.optionsContainer.removeAll(true);
+        const letters = this.currentWord.word.split('');
+        const shuffled = [...letters];
+        Phaser.Utils.Array.Shuffle(shuffled);
+        
+        // 添加额外干扰项（如果字母不够）
+        if (shuffled.length < 8) {
+            const allLetters = 'ㄱㄴㄷㄹㅁㅂㅅㅇㅈㅊㅋㅌㅍㅎㅏㅓㅗㅜㅡㅣㅐㅔ'.split('');
+            while (shuffled.length < 8) {
+                const extra = Phaser.Utils.Array.GetRandom(allLetters);
+                if (!shuffled.includes(extra)) shuffled.push(extra);
+            }
+            Phaser.Utils.Array.Shuffle(shuffled);
+        }
+        
+        const cols = 4;
+        const startX = -((cols - 1) * 45) / 2;
+        shuffled.forEach((letter, i) => {
+            const x = startX + (i % cols) * 45;
+            const y = Math.floor(i / cols) * 45;
+            const btn = this.add.text(x, y, letter, {
+                fontSize: '28px', fontFamily: 'Noto Sans KR', color: '#333',
+                backgroundColor: '#F7F7F7', padding: { x: 6, y: 3 }
+            }).setOrigin(0.5).setInteractive();
+            btn.on('pointerdown', () => this.selectLetter(btn, letter));
+            this.optionsContainer.add(btn);
+        });
+    }
+    
+    selectLetter(btn, letter) {
+        const emptySlot = this.answerSlots.find(s => !s.letter);
+        if (!emptySlot) return;
+        
+        emptySlot.letter = letter;
+        const letterText = this.add.text(0, 0, letter, {
+            fontSize: '24px', fontFamily: 'Noto Sans KR', color: '#333'
+        }).setOrigin(0.5);
+        emptySlot.add(letterText);
+        
+        btn.disableInteractive(true);
+        btn.setAlpha(0.3);
+        
+        // 检查是否完成
+        const answer = this.answerSlots.map(s => s.letter).join('');
+        if (answer.length === this.currentWord.word.length) {
+            if (answer === this.currentWord.word) {
+                this.currentScore += 50;
+                alert('✅ 正确！');
+                this.nextQuestion();
+            } else {
+                alert('❌ 错误，正确答案是: ' + this.currentWord.word);
+                this.resetQuestion();
+            }
+        }
+    }
+    
+    nextQuestion() {
+        if (this.currentScore >= this.totalQuestions * 50) {
+            this.scene.start('CompleteScene', { score: this.currentScore, attempts: 1 });
+        } else {
+            this.currentWord = Phaser.Utils.Array.GetRandom(this.words);
+            this.scrambleAndShow();
+            this.createAnswerSlots();
+            this.createOptions();
+        }
+    }
+    
+    resetQuestion() {
+        this.currentWord = Phaser.Utils.Array.GetRandom(this.words);
+        this.scrambleAndShow();
+        this.createAnswerSlots();
+        this.createOptions();
+    }
+}
+
 // 所有类定义完成后，重新构建scene数组（确保类已定义）
-GAME_CONFIG.scene = [BootScene, MenuScene, LearnScene, GameScene, CompleteScene];
+GAME_CONFIG.scene = [BootScene, MenuScene, LearnScene, GameScene, SyllableScene, WordScene, CompleteScene];
 
 console.log('[game.js] 启动Phaser游戏...');
 try {

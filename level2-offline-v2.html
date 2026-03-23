@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎮 韩语字母之旅 - Level 1-2 完整版</title>
+    <script src="phaser.min.js"></script>
+    <style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}body{margin:0;padding:0;font-family:'Noto Sans KR','Barlow',sans-serif;background:#F7F7F7;overflow:hidden;min-height:100vh}#game-container{width:100vw;height:100vh;height:100dvh;display:flex;justify-content:center;align-items:center;position:fixed;top:0;left:0;background:#F7F7F7}#game-container canvas{width:100%!important;height:100%!important;border-radius:0}@media (max-width:768px){#game-container canvas{max-width:90vw;max-height:90vh;border-radius:12px}}
+    </style>
+</head>
+<body>
+    <div id="game-container"></div>
+    <script>
+// ========== 数据层 ==========
+const KOREAN_DATA = {
+    vowels: [
+        { code:'ㅏ',name:'아',roman:'a',description:'嘴巴张大' },
+        { code:'ㅐ',name:'애',roman:'ae',description:'嘴型偏扁' },
+        { code:'ㅓ',name:'어',roman:'eo',description:'嘴稍微收圆' },
+        { code:'ㅔ',name:'에',roman:'e',description:'嘴型偏扁' },
+        { code:'ㅗ',name:'오',roman:'o',description:'嘴唇圆形' },
+        { code:'ㅜ',name:'우',roman:'u',description:'嘴唇圆形' },
+        { code:'ㅡ',name:'으',roman:'eu',description:'扁平嘴型' },
+        { code:'ㅣ',name:'이',roman:'i',description:'微笑嘴型' },
+        { code:'ㅑ',name:'야',roman:'ya',description:'ㅏ + y' },
+        { code:'ㅒ',name:'얘',roman:'yae',description:'ㅐ + y' },
+        { code:'ㅕ',name:'여',roman:'yeo',description:'ㅓ + y' },
+        { code:'ㅖ',name:'예',roman:'ye',description:'ㅔ + y' },
+        { code:'ㅛ',name:'요',roman:'yo',description:'ㅗ + y' },
+        { code:'ㅠ',name:'유',roman:'yu',description:'ㅜ + y' },
+        { code:'ㅘ',name:'와',roman:'wa',description:'ㅗ + ㅏ' },
+        { code:'ㅙ',name:'왜',roman:'wae',description:'ㅗ + ㅐ' },
+        { code:'ㅚ',name:'외',roman:'oe',description:'ㅗ + ㅣ' },
+        { code:'ㅝ',name:'워',roman:'wo',description:'ㅜ + ㅓ' },
+        { code:'ㅞ',name:'웨',roman:'we',description:'ㅜ + ㅔ' },
+        { code:'ㅟ',name:'위',roman:'wi',description:'ㅜ + ㅣ' },
+        { code:'ㅢ',name:'의',roman:'ui',description:'ㅡ + ㅣ' }
+    ],
+    consonants: [
+        { code:'ㄱ',name:'기역',roman:'g',description:'舌根音' },
+        { code:'ㄲ',name:'쌍기역',roman:'kk',description:'紧音' },
+        { code:'ㄴ',name:'니은',roman:'n',description:'舌尖音' },
+        { code:'ㄷ',name:'디귿',roman:'d',description:'舌尖塞音' },
+        { code:'ㄸ',name:'쌍디귿',roman:'tt',description:'紧音' },
+        { code:'ㄹ',name:'리을',roman:'r',description:'闪音' },
+        { code:'ㅁ',name:'미음',roman:'m',description:'双唇音' },
+        { code:'ㅂ',name:'비읍',roman:'p',description:'双唇塞音' },
+        { code:'ㅃ',name:'쌍비읍',roman:'pp',description:'紧音' },
+        { code:'ㅅ',name:'시옷',roman:'s',description:'齿间音' },
+        { code:'ㅆ',name:'쌍시옷',roman:'ss',description:'紧音' },
+        { code:'ㅇ',name:'이응',roman:'ng',description:'鼻音' },
+        { code:'ㅈ',name:'지읒',roman:'j',description:'塞擦音' },
+        { code:'ㅉ',name:'쌍지읒',roman:'jj',description:'紧音' },
+        { code:'ㅊ',name:'치읓',roman:'ch',description:'送气音' },
+        { code:'ㅋ',name:'키읔',roman:'k',description:'送气音' },
+        { code:'ㅌ',name:'티읕',roman:'t',description:'送气音' },
+        { code:'ㅍ',name:'피읖',roman:'p',description:'送气音' },
+        { code:'ㅎ',name:'히읗',roman:'h',description:'声门擦音' }
+    ],
+    words: [
+        { word:'가나다',hint:'韩语字母顺序',level:1 },
+        { word:'사랑',hint:'爱',level:2 },
+        { word:'학교',hint:'学校',level:2 },
+        { word:'학생',hint:'学生',level:2 },
+        { word:'선생님',hint:'老师',level:2 },
+        { word:'감사합니다',hint:'谢谢',level:2 },
+        { word:'안녕하세요',hint:'你好',level:2 },
+        { word:'커피',hint:'咖啡',level:2 },
+        { word:'버스',hint:'公交车',level:2 },
+        { word:'집',hint:'家',level:1 }
+    ]
+};
+
+let HANGUL_DATA = [], CONSONANTS = [], VOWELS = [];
+function initData(lvl) {
+    if (lvl === 1) { HANGUL_DATA = KOREAN_DATA.vowels; CONSONANTS = []; VOWELS = KOREAN_DATA.vowels; }
+    else { HANGUL_DATA = KOREAN_DATA.vowels.concat(KOREAN_DATA.consonants); CONSONANTS = KOREAN_DATA.consonants; VOWELS = KOREAN_DATA.vowels; }
+    console.log(`[Data] Level ${lvl} 加载: ${HANGUL_DATA.length} 字母`);
+}
+
+// ========== 配置 ==========
+const GAME_CONFIG = {
+    type: Phaser.AUTO, width:800, height:600, parent:'game-container',
+    backgroundColor:'#F7F7F7',
+    scale:{mode:Phaser.Scale.FIT,autoCenter:Phaser.Scale.CENTER_BOTH},
+    scene:[]
+};
+
+const GameState = { level:1, score:0, completedLetters:[], currentLetter:null, currentIndex:0, settings:{soundEnabled:true,ttsEnabled:true} };
+
+// ========== 场景 ==========
+class BootScene extends Phaser.Scene { constructor(){super('BootScene')} create(){console.log('[Boot]');this.time.delayedCall(500,()=>this.scene.start('MenuScene'))} }
+
+class MenuScene extends Phaser.Scene {
+    constructor(){super('MenuScene')}
+    create(){
+        console.log('[Menu]'); const cx=this.cameras.main.centerX, cy=this.cameras.main.centerY;
+        this.add.text(cx,cy-120,'🎮 韩语字母之旅',{fontSize:'42px',fontFamily:'Barlow',color:'#333'}).setOrigin(0.5);
+        this.add.text(cx,cy-60,'Level 1-2 完整学习系统',{fontSize:'20px',fontFamily:'Noto Sans KR',color:'#666'}).setOrigin(0.5);
+        const mk=(t,y,c,s)=>{const b=this.add.text(cx,cy+y,t,{fontSize:'26px',fontFamily:'Barlow',color:'#FFF',backgroundColor:c,padding:{x:35,y:15},borderRadius:'20px'}).setOrigin(0.5).setInteractive();b.on('pointerdown',()=>{if(s==='LearnScene')GameState.level=1;if(s==='SyllableScene'||s==='WordScene')GameState.level=2;this.scene.start(s)});b.on('pointerover',()=>b.setScale(1.05));b.on('pointerout',()=>b.setScale(1));return b};
+        mk('📚 Level 1: 元音基础',30,'#4ECDC4','LearnScene');
+        mk('🔤 Level 2: 音节拼图',100,'#FF6B6B','SyllableScene');
+        mk('📖 Level 2: 单词挑战',170,'#10B981','WordScene');
+        mk('ℹ️ 关于系统',240,'#6B7280','AboutScene');
+        this.add.text(cx,520,'v2.0 MVP | © 2026 小星星',{fontSize:'12px',color:'#999'}).setOrigin(0.5);
+    }
+}
+
+class LearnScene extends Phaser.Scene {
+    constructor(){super('LearnScene')}
+    create(){
+        console.log('[Learn]'); initData(1); GameState.currentIndex=0; this.showLetter();
+    }
+    showLetter(){
+        this.cameras.main.setBackgroundColor('#F7F7F7'); const cx=this.cameras.main.centerX, cy=this.cameras.main.centerY;
+        const l=HANGUL_DATA[GameState.currentIndex];
+        this.add.text(cx,cy-120,`第 ${GameState.currentIndex+1} / ${HANGUL_DATA.length} 个`,{fontSize:'20px',fontFamily:'Barlow',color:'#666'}).setOrigin(0.5);
+        this.add.text(cx,cy-40,l.code,{fontSize:'180px',fontFamily:'Noto Sans KR',color:'#FF6B6B',fontStyle:'bold'}).setOrigin(0.5);
+        this.add.text(cx,cy+50,l.name,{fontSize:'28px',fontFamily:'Noto Sans KR',color:'#333'}).setOrigin(0.5);
+        this.add.text(cx,cy+90,l.description,{fontSize:'20px',fontFamily:'Noto Sans KR',color:'#666'}).setOrigin(0.5);
+        const tts=this.add.text(cx,cy+160,'🔊 播放',{fontSize:'20px',fontFamily:'Barlow',color:'#FFF',backgroundColor:'#4ECDC4',padding:{x:30,y:12},borderRadius:'25px'}).setOrigin(0.5).setInteractive();
+        tts.on('pointerdown',()=>{if('speechSynthesis' in window){const u=new SpeechSynthesisUtterance(l.name);u.lang='ko-KR';u.rate=0.8;speechSynthesis.speak(u)}});
+        if(GameState.currentIndex>0){const prev=this.add.text(cx-200,cy+250,'← 上一个',{fontSize:'18px',color:'#666'}).setOrigin(0.5).setInteractive();prev.on('pointerdown',()=>{GameState.currentIndex--;this.scene.restart()})}
+        if(GameState.currentIndex<HANGUL_DATA.length-1){const next=this.add.text(cx+200,cy+250,'下一个 →',{fontSize:'18px',color:'#10B981'}).setOrigin(0.5).setInteractive();next.on('pointerdown',()=>{GameState.currentIndex++;this.scene.restart()})}
+        this.add.text(50,30,'← 菜单',{fontSize:'14px',color:'#666'}).setOrigin(0).setInteractive().on('pointerdown',()=>this.scene.start('MenuScene'));
+    }
+}
+
+class PuzzleScene extends Phaser.Scene {
+    constructor(){super('PuzzleScene')}
+    create(){
+        console.log('[Puzzle]'); initData(1); this.cameras.main.setBackgroundColor('#F7F7F7'); const cx=this.cameras.main.centerX, cy=this.cameras.main.centerY;
+        const l=HANGUL_DATA[Math.floor(Math.random()*HANGUL_DATA.length)];
+        this.add.text(cx,cy-120,'拼出字母: '+l.code,{fontSize:'48px',fontFamily:'Noto Sans KR',color:'#333'}).setOrigin(0.5);
+        const dz=this.add.rectangle(cx,cy+50,200,80,0xEEEEEE).setStrokeStyle(3,0xCCCCCC);
+        this.add.text(cx,cy+50,'拖拽字母到此处',{fontSize:'14px',color:'#999'}).setOrigin(0.5);
+        l.code.split('').forEach((ch,i)=>{
+            const p=this.add.text(150+i*100,cy+150,ch,{fontSize:'80px',fontFamily:'Noto Sans KR',color:'#4ECDC4',backgroundColor:'#FFF',padding:{x:20,y:10},borderRadius:'12px'}).setOrigin(0.5).setInteractive({draggable:true});
+            p.on('drag',(ptr,dx,dy)=>p.setPosition(dx,dy));
+            p.on('dragend',()=>this.check(p,dz,l.code));
+        });
+        this.add.text(cx,550,'← 返回',{fontSize:'16px',color:'#666'}).setOrigin(0.5).setInteractive().on('pointerdown',()=>this.scene.start('MenuScene'));
+    }
+    check(p,dz,target){
+        const d=Phaser.Math.Distance.Between(p.x,p.y,dz.x,dz.y);
+        if(d<80){
+            const kids=dz.children.filter(c=>c.text);
+            const cur=kids.map(c=>c.text).join('');
+            if(cur===target){dz.setFillStyle(0x10B981);this.time.delayedCall(800,()=>{alert('✅ 正确！');this.scene.start('MenuScene')})}
+            else{dz.setFillStyle(0xEF4444);this.time.delayedCall(500,()=>p.setPosition(p.x<300?150:300,300))}
+        }else p.setPosition(p.x<300?150:300,300);
+        dz.setFillStyle(0xEEEEEE);
+    }
+}
+
+class SyllableScene extends Phaser.Scene {
+    constructor(){super('SyllableScene')}
+    create(){
+        console.log('[Syllable]'); initData(2); this.cameras.main.setBackgroundColor('#F7F7F7'); const cx=this.cameras.main.centerX, cy=this.cameras.main.centerY;
+        this.add.text(cx,cy-180,'🔤 音节拼图',{fontSize:'36px',fontFamily:'Barlow',color:'#333'}).setOrigin(0.5);
+        this.add.text(cx,cy-120,'拖拽辅音+元音组成音节',{fontSize:'16px',fontFamily:'Noto Sans KR',color:'#666'}).setOrigin(0.5);
+        const con=Phaser.Utils.Array.GetRandom(CONSONANTS), vow=Phaser.Utils.Array.GetRandom(VOWELS);
+        this.target=con.code+vow.code;
+        this.add.text(cx,cy-60,`目标: ${con.code} + ${vow.code} = ?`,{fontSize:'28px',fontFamily:'Noto Sans KR',color:'#FF6B6B'}).setOrigin(0.5);
+        const dz=this.add.rectangle(cx,cy+60,200,80,0xEEEEEE).setStrokeStyle(3,0xCCCCCC);
+        this.add.text(cx,cy+60,'拖到这里',{fontSize:'14px',color:'#999'}).setOrigin(0.5);
+        [con,vow].forEach((l,i)=>{
+            const p=this.add.text(150+i*150,cy+180,l.code,{fontSize:'80px',fontFamily:'Noto Sans KR',color:'#4ECDC4',backgroundColor:'#FFF',padding:{x:20,y:10},borderRadius:'12px'}).setOrigin(0.5).setInteractive({draggable:true});
+            p.on('drag',(ptr,dx,dy)=>p.setPosition(dx,dy));
+            p.on('dragend',()=>this.check(p,dz,cx));
+        });
+        this.add.text(cx,550,'← 菜单',{fontSize:'16px',color:'#666'}).setOrigin(0.5).setInteractive().on('pointerdown',()=>this.scene.start('MenuScene'));
+    }
+    check(p,dz,cx){
+        const d=Phaser.Math.Distance.Between(p.x,p.y,dz.x,dz.y);
+        if(d<80){
+            const kids=dz.children.filter(c=>c.text);
+            const cur=kids.map(c=>c.text).join('');
+            if(cur===this.target){dz.setFillStyle(0x10B981);this.time.delayedCall(800,()=>{alert('✅ 正确！');this.scene.start('MenuScene')})}
+            else{dz.setFillStyle(0xEF4444);this.time.delayedCall(500,()=>p.setPosition(p.x<300?150:300,300))}
+        }else p.setPosition(p.x<300?150:300,300);
+        dz.setFillStyle(0xEEEEEE);
+    }
+}
+
+class WordScene extends Phaser.Scene {
+    constructor(){super('WordScene')}
+    create(){
+        console.log('[Word]'); initData(2); this.cameras.main.setBackgroundColor('#F7F7F7'); const cx=this.cameras.main.centerX, cy=this.cameras.main.centerY;
+        this.add.text(cx,cy-180,'📖 单词挑战',{fontSize:'36px',fontFamily:'Barlow',color:'#333'}).setOrigin(0.5);
+        this.words=KOREAN_DATA.words.filter(w=>w.level<=2); this.current=Phaser.Utils.Array.GetRandom(this.words); this.score=0; this.total=5; this.qIdx=0;
+        this.add.text(cx,cy-120,'提示: '+this.current.hint,{fontSize:'20px',fontFamily:'Noto Sans KR',color:'#666'}).setOrigin(0.5);
+        this.qText=this.add.text(cx,cy-60,'???',{fontSize:'64px',fontFamily:'Noto Sans KR',color:'#333',fontStyle:'bold'}).setOrigin(0.5);
+        this.scramble();
+        this.ansCont=this.add.container(cx,cy+60); this.makeSlots();
+        this.optCont=this.add.container(cx,cy+160); this.makeOpts();
+        this.add.text(cx,520,'← 返回',{fontSize:'16px',color:'#666'}).setOrigin(0.5).setInteractive().on('pointerdown',()=>this.scene.start('MenuScene'));
+    }
+    scramble(){const l=this.current.word.split('');Phaser.Utils.Array.Shuffle(l);this.qText.setText(l.join(' '));}
+    makeSlots(){
+        this.ansCont.removeAll(true); this.slots=[];
+        const len=this.current.word.length, startX=-((len-1)*40)/2;
+        for(let i=0;i<len;i++){
+            const s=this.add.rectangle(startX+i*40,0,38,38,0xFFFFFF).setStrokeStyle(2,0xAAAAAA);
+            s.letter=null; this.ansCont.add(s); this.slots.push(s);
+        }
+    }
+    makeOpts(){
+        this.optCont.removeAll(true);
+        let opts=this.current.word.split(''); Phaser.Utils.Array.Shuffle(opts);
+        if(opts.length<8){const all='ㄱㄴㄷㄹㅁㅂㅅㅇㅈㅊㅋㅌㅍㅎㅏㅓㅗㅜㅡㅣㅐㅔ'.split('');while(opts.length<8){const e=Phaser.Utils.Array.GetRandom(all);if(!opts.includes(e))opts.push(e)}Phaser.Utils.Array.Shuffle(opts)}
+        const cols=4, startX=-((cols-1)*45)/2;
+        opts.forEach((l,i)=>{
+            const x=startX+(i%cols)*45, y=Math.floor(i/cols)*45;
+            const b=this.add.text(x,y,l,{fontSize:'28px',fontFamily:'Noto Sans KR',color:'#333',backgroundColor:'#F7F7F7',padding:{x:6,y:3}}).setOrigin(0.5).setInteractive();
+            b.on('pointerdown',()=>this.pick(b,l)); this.optCont.add(b);
+        });
+    }
+    pick(b,l){
+        const empty=this.slots.find(s=>!s.letter); if(!empty) return;
+        empty.letter=l; const t=this.add.text(0,0,l,{fontSize:'24px',fontFamily:'Noto Sans KR',color:'#333'}).setOrigin(0.5); empty.add(t);
+        b.disableInteractive(true); b.setAlpha(0.3);
+        const ans=this.slots.map(s=>s.letter).join('');
+        if(ans.length===this.current.word.length){
+            if(ans===this.current.word){
+                this.score+=50; this.qIdx++;
+                alert('✅ 正确！');
+                if(this.qIdx<this.total){
+                    this.current=Phaser.Utils.Array.GetRandom(this.words);
+                    this.scramble(); this.makeSlots(); this.makeOpts();
+                } else { alert('🎉 完成！'); this.scene.start('MenuScene'); }
+            } else { this.optCont.children.each(c=>{c.destroy()}); this.makeOpts(); }
+        }
+    }
+}
+
+class CompleteScene extends Phaser.Scene {
+    constructor(){super('CompleteScene')}
+    create(){
+        console.log('[Complete]'); const cx=this.cameras.main.centerX, cy=this.cameras.main.centerY;
+        this.add.text(cx,cy-80,'🎉 恭喜完成！',{fontSize:'64px',fontFamily:'Barlow',color:'#10B981'}).setOrigin(0.5);
+        this.add.text(cx,cy+40,`掌握字母: ${HANGUL_DATA.length} 个`,{fontSize:'24px',fontFamily:'Noto Sans KR',color:'#666'}).setOrigin(0.5);
+        this.add.text(cx,cy+120,'v2.0 持续更新中...',{fontSize:'18px',fontFamily:'Noto Sans KR',color:'#888'}).setOrigin(0.5);
+        this.add.text(cx,cy+200,'← 返回菜单',{fontSize:'24px',color:'#4ECDC4'}).setOrigin(0.5).setInteractive().on('pointerdown',()=>this.scene.start('MenuScene'));
+    }
+}
+
+class AboutScene extends Phaser.Scene {
+    constructor(){super('AboutScene')}
+    create(){
+        const cx=this.cameras.main.centerX, cy=this.cameras.main.centerY;
+        this.add.text(cx,cy-100,'韩语字母之旅 v2.0',{fontSize:'42px',fontFamily:'Barlow',color:'#333'}).setOrigin(0.5);
+        this.add.text(cx,cy-20,'Level 1: 元音 + 拼图',{fontSize:'18px',fontFamily:'Noto Sans KR',color:'#666'}).setOrigin(0.5);
+        this.add.text(cx,cy+30,'Level 2: 辅音+音节 + 单词',{fontSize:'18px',fontFamily:'Noto Sans KR',color:'#666'}).setOrigin(0.5);
+        this.add.text(cx,cy+100,'© 2026 小星星',{fontSize:'16px',color:'#999'}).setOrigin(0.5);
+        this.add.text(cx,cy+180,'← 返回',{fontSize:'20px',color:'#4ECDC4'}).setOrigin(0.5).setInteractive().on('pointerdown',()=>this.scene.start('MenuScene'));
+    }
+}
+
+// ========== 启动 ==========
+initData(1);
+GAME_CONFIG.scene = [BootScene, MenuScene, LearnScene, PuzzleScene, SyllableScene, WordScene, CompleteScene, AboutScene];
+console.log('[init] 启动...');
+try { window.game = new Phaser.Game(GAME_CONFIG); console.log('[init] ✅'); }
+catch(e) { console.error('[init] ❌',e); document.getElementById('game-container').innerHTML = `<h1 style="color:red">启动失败: ${e.message}</h1>`; }
+    </script>
+</body>
+</html>
