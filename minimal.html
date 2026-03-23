@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Minimal Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+</head>
+<body>
+    <div id="game-container"></div>
+    <h1 style="position:fixed;top:10px;left:10px;z-index:9999">MINIMAL TEST</h1>
+    <script>
+        console.log('开始创建Phaser游戏...');
+        const config = {
+            type: Phaser.AUTO,
+            width: 800,
+            height: 600,
+            parent: 'game-container',
+            scene: {
+                preload: function() {
+                    console.log('preload');
+                    this.add.text(400, 300, '游戏启动！', { fontSize: '48px', fill: '#FF6B6B' }).setOrigin(0.5);
+                },
+                create: function() {
+                    console.log('create');
+                }
+            }
+        };
+        const game = new Phaser.Game(config);
+        console.log('Phaser游戏已创建');
+    </script>
+</body>
+</html>
