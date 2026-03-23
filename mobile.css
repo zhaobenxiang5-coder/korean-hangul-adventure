@@ -18,13 +18,16 @@ body {
 
 #game-container {
   width: 100vw;
+  width: 100dvw; /* 动态视口宽度，适配移动浏览器 */
   height: 100vh;
+  height: 100dvh; /* 动态视口高度，解决移动端地址栏问题 */
   display: flex;
   justify-content: center;
   align-items: center;
   position: fixed;
   top: 0;
   left: 0;
+  background: #F7F7F7; /* 确保背景可见 */
 }
 
 /* Phaser画布适配 */
