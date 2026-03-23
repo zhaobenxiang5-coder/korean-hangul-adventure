@@ -107,6 +107,23 @@ class MenuScene extends Phaser.Scene {
             alert('设置面板（开发中）');
         });
 
+        // 继续游戏按钮（如果有存档）
+        if (window.ProgressHandler && window.ProgressHandler.hasSave()) {
+            const continueBtn = this.add.text(cx, cy + 20, '▶ 继续学习', {
+                fontSize: '20px',
+                fontFamily: 'Barlow, sans-serif',
+                color: '#333333',
+                backgroundColor: '#FFE66D',
+                padding: { x: 30, y: 12 },
+                borderRadius: '12px'
+            }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+            continueBtn.on('pointerdown', () => {
+                // 直接进入GameScene，进度已保存
+                this.scene.start('GameScene');
+            });
+        }
+
         // 版本信息
         this.add.text(cx, 580, 'v0.1 MVP | © 2026 小星星', {
             fontSize: '12px',
@@ -243,15 +260,19 @@ class LearnScene extends Phaser.Scene {
 
     async playTTS(text) {
         try {
-            // 调用 sag TTS技能
             console.log(`[TTS] 播放: ${text}`);
-            // 实际实现需要连接到OpenClaw sag技能
-            // 这里用Web Speech API模拟
-            if ('speechSynthesis' in window) {
+            
+            // 优先使用sag集成（如果有）
+            if (window.sagIntegration && window.sagIntegration.playTTS) {
+                await window.sagIntegration.playTTS(text);
+            } else if ('speechSynthesis' in window) {
+                // Fallback: 浏览器原生TTS
                 const utterance = new SpeechSynthesisUtterance(text);
                 utterance.lang = 'ko-KR';
                 utterance.rate = 0.8;
                 window.speechSynthesis.speak(utterance);
+            } else {
+                console.warn('[TTS] 不支持TTS播放');
             }
         } catch (error) {
             console.error('[TTS] 失败:', error);
@@ -480,6 +501,13 @@ class GameScene extends Phaser.Scene {
 
         // 检查是否完成
         if (correct === total) {
+            // 保存进度
+            if (window.ProgressHandler) {
+                const stars = this.score >= 150 ? 3 : (this.score >= 100 ? 2 : 1);
+                window.ProgressHandler.completeLevel(1, stars);
+                console.log('[Progress] Level 1 完成，已保存进度');
+            }
+            
             this.time.delayedCall(1500, () => {
                 this.scene.start('CompleteScene', { 
                     score: this.score,

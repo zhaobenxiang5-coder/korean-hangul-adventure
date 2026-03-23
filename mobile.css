@@ -1,0 +1,131 @@
+/* 📱 移动端响应式优化
+   确保手机和平板上的良好体验
+*/
+
+/* 全局设置 */
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: 'Noto Sans KR', 'Barlow', sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color: #F7F7F7;
+  overflow: hidden; /* 防止滚动，Phaser全屏 */
+}
+
+#game-container {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: fixed;
+  top: 0;
+  left: 0;
+}
+
+/* Phaser画布适配 */
+canvas {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 0; /* 手机上去掉圆角，利用全屏 */
+}
+
+/* ==================== 手机竖屏 (< 768px) ==================== */
+@media (max-width: 768px) {
+  /* 调整Phaser缩放 */
+  #game-container canvas {
+    width: 100% !important;
+    height: 100% !important;
+    border-radius: 0;
+  }
+  
+  /* 触摸友好：增大按钮区域 */
+  .game-button {
+    min-width: 120px;
+    min-height: 56px;
+    font-size: 18px !important;
+    padding: 12px 24px !important;
+  }
+  
+  /* 字母大小调整 */
+  .letter-text {
+    font-size: 48px !important;
+  }
+  
+  .slot-rectangle {
+    width: 80px !important;
+    height: 80px !important;
+  }
+  
+  /* 防止文本溢出 */
+  .example-text {
+    font-size: 16px !important;
+    max-width: 90vw;
+  }
+}
+
+/* ==================== 平板 (768px - 1024px) ==================== */
+@media (min-width: 768px) and (max-width: 1024px) {
+  #game-container canvas {
+    max-width: 90vw;
+    max-height: 90vh;
+    border-radius: 12px;
+  }
+}
+
+/* ==================== 桌面 (> 1024px) ==================== */
+@media (min-width: 1024px) {
+  #game-container canvas {
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  }
+}
+
+/* ==================== 横屏模式警告 ==================== */
+@media (orientation: landscape) and (max-height: 500px) {
+  #game-container::before {
+    content: "请旋转设备为竖屏以获得最佳体验";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.8);
+    color: white;
+    padding: 20px 40px;
+    border-radius: 12px;
+    font-size: 18px;
+    z-index: 9999;
+  }
+}
+
+/* ==================== 动画优化 ==================== */
+@keyframes popIn {
+  from { transform: scale(0.8); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.pop-in {
+  animation: popIn 0.3s ease-out;
+}
+
+/* ==================== 高对比度模式（无障碍）==================== */
+@media (prefers-contrast: high) {
+  .game-button {
+    border: 3px solid #333 !important;
+  }
+}
+
+/* ==================== 减少动画（用户偏好）==================== */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+console.log('✅ mobile.css 已加载');
