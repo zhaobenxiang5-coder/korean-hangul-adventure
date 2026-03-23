@@ -3,6 +3,14 @@
    依赖: Phaser 3.60+
 */
 
+console.log('[game.js] 开始加载，检查Phaser...');
+if (typeof Phaser === 'undefined') {
+    console.error('[game.js] ❌ Phaser未加载！');
+    document.getElementById('game-container').innerHTML = '<h1 style="color:red">Phaser加载失败，请检查网络连接</h1>';
+} else {
+    console.log('[game.js] ✅ Phaser版本:', Phaser.VERSION);
+}
+
 // 游戏配置
 const GAME_CONFIG = {
     type: Phaser.AUTO,
@@ -16,6 +24,8 @@ const GAME_CONFIG = {
     },
     scene: [BootScene, MenuScene, LearnScene, GameScene, CompleteScene]
 };
+
+console.log('[game.js] 游戏配置已创建，准备启动Phaser.Game...');
 
 // 游戏全局状态
 const GameState = {
@@ -31,9 +41,6 @@ const GameState = {
 
 // 字母数据（从content.js加载）
 let HANGUL_DATA = [];
-
-// 启动游戏
-const game = new Phaser.Game(GAME_CONFIG);
 
 // ========== 场景1: 启动场景 ==========
 class BootScene extends Phaser.Scene {
@@ -664,5 +671,14 @@ class CompleteScene extends Phaser.Scene {
     }
 }
 
-console.log('🎮 韩语字母之旅 - 游戏代码已加载');
-console.log('📊 当前技能数:', Object.keys(GAME_CONFIG.scene).length, '个场景');
+// 所有类定义完成后，重新构建scene数组（确保类已定义）
+GAME_CONFIG.scene = [BootScene, MenuScene, LearnScene, GameScene, CompleteScene];
+
+console.log('[game.js] 启动Phaser游戏...');
+try {
+    const game = new Phaser.Game(GAME_CONFIG);
+    console.log('[game.js] ✅ Phaser游戏实例已创建');
+} catch (error) {
+    console.error('[game.js] ❌ Phaser启动失败:', error);
+    document.getElementById('game-container').innerHTML = `<h1 style="color:red">游戏启动失败: ${error.message}</h1>`;
+}
