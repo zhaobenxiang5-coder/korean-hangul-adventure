@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>测试</title>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+</head>
+<body>
+    <div id="test">页面加载了！</div>
+    <script>
+        document.getElementById('test').innerHTML = 'JS运行正常！Phaser版本: ' + (typeof Phaser !== 'undefined' ? Phaser.VERSION : '未加载');
+        console.log('测试成功');
+    </script>
+</body>
+</html>
