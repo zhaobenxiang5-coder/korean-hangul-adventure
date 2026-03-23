@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>韩语字母之旅 - Level 1</title>
+    <style>
+        /* 内联样式 */
+        body { margin:0; padding:0; font-family:'Noto Sans KR','Barlow',sans-serif; background:#F7F7F7; overflow:hidden; }
+        #game-container { width:100vw; height:100vh; width:100dvw; height:100dvh; display:flex; justify-content:center; align-items:center; position:fixed; top:0; left:0; background:#F7F7F7; }
+    </style>
+    <!-- 内联Phaser 3.60 CDN（使用jsdelivr备用） -->
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+</head>
+<body>
+    <div id="game-container"></div>
+    
+    <!-- 内联核心脚本 -->
+    <script>
+// 简化的完整游戏 - 单文件版本
+console.log('游戏加载开始...');
+
+// 字母数据
+const HANGUL_DATA = [
+    { letter: 'ㅏ', name: 'a', roman: 'a', example: '아', exampleRoman: 'a' },
+    { letter: 'ㅓ', name: 'eo', roman: 'eo', example: '어', exampleRoman: 'eo' },
+    { letter: 'ㅗ', name: 'o', roman: 'o', example: '오', exampleRoman: 'o' },
+    { letter: 'ㅜ', name: 'u', roman: 'u', example: '우', exampleRoman: 'u' },
+    { letter: 'ㅡ', name: 'eu', roman: 'eu', example: '으', exampleRoman: 'eu' }
+];
+
+// 游戏配置
+const GAME_CONFIG = {
+    type: Phaser.AUTO,
+    width: 800,
+    height: 600,
+    parent: 'game-container',
+    backgroundColor: '#F7F7F7',
+    scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+    scene: {
+        preload: preload,
+        create: create,
+        update: update
+    }
+};
+
+let game;
+let currentScene;
+
+function preload() {
+    console.log('[preload] 加载资源...');
+}
+
+function create() {
+    console.log('[create] 创建场景');
+    const cx = this.cameras.main.centerX;
+    const cy = this.cameras.main.centerY;
+    
+    // 标题
+    this.add.text(cx, cy - 100, '韩语字母之旅', {
+        fontSize: '48px', fontFamily: 'Barlow, sans-serif', color: '#333' }).setOrigin(0.5);
+    
+    this.add.text(cx, cy - 40, '点击任意字母开始学习', {
+        fontSize: '20px', fontFamily: 'Noto Sans KR, sans-serif', color: '#666' }).setOrigin(0.5);
+    
+    // 字母按钮
+    HANGUL_DATA.forEach((item, idx) => {
+        const btn = this.add.text(cx + (idx - 2) * 120, cy + 50, item.letter, {
+            fontSize: '64px', fontFamily: 'Noto Sans KR, sans-serif', color: '#FF6B6B',
+            backgroundColor: '#FFF', padding: { x: 20, y: 20 }
+        }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+        
+        btn.on('pointerdown', () => {
+            alert(`字母: ${item.letter}\n发音: ${item.roman}\n例词: ${item.example} (${item.exampleRoman})`);
+        });
+    });
+    
+    currentScene = this;
+}
+
+function update() {
+    // 游戏循环
+}
+
+// 启动游戏
+if (typeof Phaser !== 'undefined') {
+    console.log('Phaser版本:', Phaser.VERSION);
+    game = new Phaser.Game(GAME_CONFIG);
+    console.log('游戏已启动');
+} else {
+    document.getElementById('game-container').innerHTML = '<h1 style="color:red">Phaser加载失败，请检查网络</h1>';
+}
+    </script>
+</body>
+</html>
