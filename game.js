@@ -3,15 +3,7 @@
    依赖: Phaser 3.60+
 */
 
-console.log('[game.js] 开始加载，检查Phaser...');
-if (typeof Phaser === 'undefined') {
-    console.error('[game.js] ❌ Phaser未加载！');
-    document.getElementById('game-container').innerHTML = '<h1 style="color:red">Phaser加载失败，请检查网络连接</h1>';
-} else {
-    console.log('[game.js] ✅ Phaser版本:', Phaser.VERSION);
-}
-
-// 游戏配置
+// 游戏配置（所有场景类定义后初始化）
 const GAME_CONFIG = {
     type: Phaser.AUTO,
     width: 800,
@@ -24,8 +16,6 @@ const GAME_CONFIG = {
     },
     scene: [BootScene, MenuScene, LearnScene, GameScene, CompleteScene]
 };
-
-console.log('[game.js] 游戏配置已创建，准备启动Phaser.Game...');
 
 // 游戏全局状态
 const GameState = {
