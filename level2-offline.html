@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎮 韩语字母之旅 - Level 2 (完整版)</title>
+    <script src="phaser.min.js"></script>
+    <style>
+/* 内联样式 */
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body { margin:0; padding:0; font-family:'Noto Sans KR','Barlow',sans-serif; background:#F7F7F7; overflow:hidden; min-height:100vh; }
+#game-container { width:100vw; height:100vh; height:100dvh; display:flex; justify-content:center; align-items:center; position:fixed; top:0; left:0; background:#F7F7F7; }
+#game-container canvas { width:100% !important; height:100% !important; border-radius:0; }
+@media (max-width:768px){ #game-container canvas { max-width:90vw; max-height:90vh; border-radius:12px; } }
+.btn { font-family:'Barlow',sans-serif; font-weight:600; padding:12px 32px; border-radius:9999px; border:none; cursor:pointer; transition:transform 0.1s; }
+.btn:hover { transform:scale(1.05); } .btn:active { transform:scale(0.98); }
+</style>
+</head>
+<body>
+    <div id="game-container"></div>
+    <script>
+// ========== Level 2 完整数据 ==========
+const HANGUL_DATA = [
+    // 辅音 19
+    { id:'ㄱ',name:'기역',sound:'g',type:'consonant'},{ id:'ㄲ',name:'쌍기역',sound:'kk',type:'consonant'},{ id:'ㄴ',name:'니은',sound:'n',type:'consonant'},{ id:'ㄷ',name:'디귿',sound:'d',type:'consonant'},{ id:'ㄸ',name:'쌍디귿',sound:'tt',type:'consonant'},{ id:'ㄹ',name:'리을',sound:'r',type:'consonant'},{ id:'ㅁ',name:'미음',sound:'m',type:'consonant'},{ id:'ㅂ',name:'비읍',sound:'p',type:'consonant'},{ id:'ㅃ',name:'쌍비읍',sound:'pp',type:'consonant'},{ id:'ㅅ',name:'시옷',sound:'s',type:'consonant'},{ id:'ㅆ',name:'쌍시옷',sound:'ss',type:'consonant'},{ id:'ㅇ',name:'이응',sound:'ng',type:'consonant'},{ id:'ㅈ',name:'지읒',sound:'j',type:'consonant'},{ id:'ㅉ',name:'쌍지읒',sound:'jj',type:'consonant'},{ id:'ㅊ',name:'치읓',sound:'ch',type:'consonant'},{ id:'ㅋ',name:'키읔',sound:'k',type:'consonant'},{ id:'ㅌ',name:'티읕',sound:'t',type:'consonant'},{ id:'ㅍ',name:'피읖',sound:'p',type:'consonant'},{ id:'ㅎ',name:'히읗',sound:'h',type:'consonant'},
+    // 元音 21
+    { id:'ㅏ',name:'아',sound:'a',type:'vowel'},{ id:'ㅐ',name:'애',sound:'ae',type:'vowel'},{ id:'ㅑ',name:'야',sound:'ya',type:'vowel'},{ id:'ㅒ',name:'얘',sound:'yae',type:'vowel'},{ id:'ㅓ',name:'어',sound:'eo',type:'vowel'},{ id:'ㅔ',name:'에',sound:'e',type:'vowel'},{ id:'ㅕ',name:'여',sound:'yeo',type:'vowel'},{ id:'ㅖ',name:'예',sound:'ye',type:'vowel'},{ id:'ㅗ',name:'오',sound:'o',type:'vowel'},{ id:'ㅘ',name:'와',sound:'wa',type:'vowel'},{ id:'ㅙ',name:'왜',sound:'wae',type:'vowel'},{ id:'ㅚ',name:'외',sound:'oe',type:'vowel'},{ id:'ㅛ',name:'요',sound:'yo',type:'vowel'},{ id:'ㅜ',name:'우',sound:'u',type:'vowel'},{ id:'ㅝ',name:'워',sound:'wo',type:'vowel'},{ id:'ㅞ',name:'웨',sound:'we',type:'vowel'},{ id:'ㅟ',name:'위',sound:'wi',type:'vowel'},{ id:'ㅠ',name:'유',sound:'yu',type:'vowel'},{ id:'ㅡ',name:'으',sound:'eu',type:'vowel'},{ id:'ㅢ',name:'의',sound:'ui',type:'vowel'},{ id:'ㅣ',name:'이',sound:'i',type:'vowel'}
+];
+const CONSONANTS = HANGUL_DATA.filter(l => l.type === 'consonant');
+const VOWELS = HANGUL_DATA.filter(l => l.type === 'vowel');
+
+// ========== 存储模块 ==========
+const Storage = {
+    getProgress: () => JSON.parse(localStorage.getItem('koreanProgress')) || { completed:[], settings:{soundEnabled:true} },
+    saveProgress: (p) => { try { localStorage.setItem('koreanProgress', JSON.stringify(p)); } catch(e){} },
+    resetProgress: () => { localStorage.removeItem('koreanProgress'); location.reload(); }
+};
+
+// ========== TTS模块 ==========
+const TTS = {
+    speak: (txt, cb) => {
+        if ('speechSynthesis' in window) {
+            const u = new SpeechSynthesisUtterance(txt);
+            u.lang = 'ko-KR';
+            u.rate = 0.8;
+            u.onend = cb || (()=>{});
+            speechSynthesis.speak(u);
+        } else if (cb) cb();
+    },
+    stop: () => { if ('speechSynthesis' in window) speechSynthesis.cancel(); }
+};
+
+// ========== 游戏配置 ==========
+const GAME_CONFIG = {
+    type: Phaser.AUTO, width:800, height:600, parent:'game-container',
+    backgroundColor:'#F7F7F7',
+    scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+    scene: []
+};
+
+const GameState = { level:1, score:0, completedLetters:[], currentLetter:null, settings:{soundEnabled:true,fontSize:24} };
+
+// ========== 场景定义 ==========
+class BootScene extends Phaser.Scene {
+    constructor() { super('BootScene'); }
+    create() {
+        console.log('[BootScene] 启动'); this.time.delayedCall(300, () => this.scene.start('MenuScene'));
+    }
+}
+
+class MenuScene extends Phaser.Scene {
+    constructor() { super('MenuScene'); }
+    create() {
+        console.log('[MenuScene]'); const cx=this.cameras.main.centerX, cy=this.cameras.main.centerY;
+        this.add.text(cx, cy-120, '🎮 韩语字母之旅 Level 2', {fontSize:'42px',fontFamily:'Barlow',color:'#333'}).setOrigin(0.5);
+        this.add.text(cx, cy-60, '辅音 + 元音 + 音节拼图', {fontSize:'20px',fontFamily:'Noto Sans KR',color:'#666'}).setOrigin(0.5);
+        const mkBtn = (txt,y,col,scene) => {
+            const b = this.add.text(cx,cy+y,txt,{fontSize:'28px',fontFamily:'Barlow',color:'#FFF',backgroundColor:col,padding:{x:40,y:16},borderRadius:'16px'}).setOrigin(0.5).setInteractive();
+            b.on('pointerdown',()=>this.scene.start(scene));
+            b.on('pointerover',()=>b.setScale(1.05)); b.on('pointerout',()=>b.setScale(1));
+            return b;
+        };
+        mkBtn('🔤 音节拼图',30,'#4ECDC4','SyllableScene');
+        mkBtn('📖 单词挑战',100,'#FF6B6B','WordScene');
+        mkBtn('ℹ️ 关于',170,'#6B7280','AboutScene');
+        this.add.text(cx,520,'v2.0 MVP | © 2026 小星星',{fontSize:'12px',color:'#999'}).setOrigin(0.5);
+    }
+}
+
+class SyllableScene extends Phaser.Scene {
+    constructor() { super('SyllableScene'); }
+    create() {
+        console.log('[SyllableScene]'); this.cameras.main.setBackgroundColor('#F7F7F7');
+        const cx=this.cameras.main.centerX, cy=this.cameras.main.centerY;
+        this.add.text(cx,cy-180,'🔤 音节拼图',{fontSize:'36px',fontFamily:'Barlow',color:'#333'}).setOrigin(0.5);
+        this.add.text(cx,cy-120,'拖拽辅音+元音组成音节',{fontSize:'16px',fontFamily:'Noto Sans KR',color:'#666'}).setOrigin(0.5);
+        const con = Phaser.Utils.Array.GetRandom(CONSONANTS);
+        const vow = Phaser.Utils.Array.GetRandom(VOWELS);
+        this.target = con.id + vow.id;
+        this.add.text(cx,cy-60,`目标: ${con.id} + ${vow.id} = ?`,{fontSize:'28px',fontFamily:'Noto Sans KR',color:'#FF6B6B'}).setOrigin(0.5);
+        const dz = this.add.rectangle(cx,cy+60,200,80,0xEEEEEE).setStrokeStyle(3,0xCCCCCC);
+        this.add.text(cx,cy+60,'拖拽到这里',{fontSize:'14px',color:'#999'}).setOrigin(0.5);
+        [con,vow].forEach((l,i) => {
+            const p = this.add.text(150+i*150,cy+180,l.id,{fontSize:'80px',fontFamily:'Noto Sans KR',color:'#4ECDC4',backgroundColor:'#FFF',padding:{x:20,y:10},borderRadius:'12px'}).setOrigin(0.5).setInteractive({draggable:true});
+            p.on('drag',(ptr,dx,dy)=>p.setPosition(dx,dy));
+            p.on('dragend',()=>this.check(p,dz,cx));
+        });
+        this.add.text(cx,550,'← 返回',{fontSize:'16px',color:'#666'}).setOrigin(0.5).setInteractive().on('pointerdown',()=>this.scene.start('MenuScene'));
+    }
+    check(p,dz,cx) {
+        const d = Phaser.Math.Distance.Between(p.x,p.y,dz.x,dz.y);
+        if (d<80) {
+            const kids = dz.children.filter(c=>c.text&&c.letterId);
+            const cur = kids.map(c=>c.letterId).sort().join('');
+            if (cur===this.target) { dz.setFillStyle(0x10B981); this.time.delayedCall(800,()=>{alert('✅ 正确！'); this.scene.start('MenuScene');}); }
+            else { dz.setFillStyle(0xEF4444); this.time.delayedCall(500,()=>p.setPosition(p.x<300?150:300,300)); }
+        } else p.setPosition(p.x<300?150:300,300);
+        dz.setFillStyle(0xEEEEEE);
+    }
+}
+
+class WordScene extends Phaser.Scene {
+    constructor() { super('WordScene'); }
+    create() {
+        console.log('[WordScene]'); this.cameras.main.setBackgroundColor('#F7F7F7');
+        const cx=this.cameras.main.centerX, cy=this.cameras.main.centerY;
+        this.add.text(cx,cy-180,'📖 单词挑战',{fontSize:'36px',fontFamily:'Barlow',color:'#333'}).setOrigin(0.5);
+        this.words = [{word:'가나다',hint:'韩语字母顺序'},{word:'사랑',hint:'爱'},{word:'학교',hint:'学校'},{word:'학생',hint:'学生'},{word:'선생님',hint:'老师'},{word:'감사합니다',hint:'谢谢'}];
+        this.current = Phaser.Utils.Array.GetRandom(this.words);
+        this.score = 0; this.total = 5; this.qIdx = 0;
+        this.add.text(cx,cy-120,'提示: '+this.current.hint,{fontSize:'20px',fontFamily:'Noto Sans KR',color:'#666'}).setOrigin(0.5);
+        this.qText = this.add.text(cx,cy-60,'???',{fontSize:'64px',fontFamily:'Noto Sans KR',color:'#333',fontStyle:'bold'}).setOrigin(0.5);
+        this.scramble();
+        this.ansCont = this.add.container(cx,cy+60); this.makeSlots();
+        this.optCont = this.add.container(cx,cy+160); this.makeOpts();
+        this.add.text(cx,520,'← 返回',{fontSize:'16px',color:'#666'}).setOrigin(0.5).setInteractive().on('pointerdown',()=>this.scene.start('MenuScene'));
+    }
+    scramble() { const l=this.current.word.split(''); Phaser.Utils.Array.Shuffle(l); this.qText.setText(l.join(' ')); }
+    makeSlots() {
+        this.ansCont.removeAll(true); this.slots=[];
+        const len=this.current.word.length, startX=-((len-1)*40)/2;
+        for(let i=0;i<len;i++) {
+            const s=this.add.rectangle(startX+i*40,0,38,38,0xFFFFFF).setStrokeStyle(2,0xAAAAAA);
+            s.letter=null; this.ansCont.add(s); this.slots.push(s);
+        }
+    }
+    makeOpts() {
+        this.optCont.removeAll(true);
+        let opts = this.current.word.split('');
+        Phaser.Utils.Array.Shuffle(opts);
+        if (opts.length<8) {
+            const all = 'ㄱㄴㄷㄹㅁㅂㅅㅇㅈㅊㅋㅌㅍㅎㅏㅓㅗㅜㅡㅣㅐㅔ'.split('');
+            while(opts.length<8) { const e=Phaser.Utils.Array.GetRandom(all); if(!opts.includes(e)) opts.push(e); }
+            Phaser.Utils.Array.Shuffle(opts);
+        }
+        const cols=4, startX=-((cols-1)*45)/2;
+        opts.forEach((l,i) => {
+            const x = startX + (i%cols)*45, y = Math.floor(i/cols)*45;
+            const b = this.add.text(x,y,l,{fontSize:'28px',fontFamily:'Noto Sans KR',color:'#333',backgroundColor:'#F7F7F7',padding:{x:6,y:3}}).setOrigin(0.5).setInteractive();
+            b.on('pointerdown',()=>this.pick(b,l));
+            this.optCont.add(b);
+        });
+    }
+    pick(b,l) {
+        const empty = this.slots.find(s=>!s.letter);
+        if (!empty) return;
+        empty.letter = l;
+        const t = this.add.text(0,0,l,{fontSize:'24px',fontFamily:'Noto Sans KR',color:'#333'}).setOrigin(0.5);
+        empty.add(t);
+        b.disableInteractive(true); b.setAlpha(0.3);
+        const ans = this.slots.map(s=>s.letter).join('');
+        if (ans.length===this.current.word.length) {
+            if (ans===this.current.word) {
+                this.score+=50; this.qIdx++;
+                alert('✅ 正确！');
+                if (this.qIdx<this.total) { this.current=Phaser.Utils.Array.GetRandom(this.words); this.scramble(); this.makeSlots(); this.makeOpts(); }
+                else { alert('🎉 完成挑战！'); this.scene.start('MenuScene'); }
+            } else {
+                this.optCont.children.each(c=>{ c.destroy(); });
+                this.makeOpts();
+            }
+        }
+    }
+}
+
+class AboutScene extends Phaser.Scene {
+    constructor() { super('AboutScene'); }
+    create() {
+        const cx=this.cameras.main.centerX, cy=this.cameras.main.centerY;
+        this.add.text(cx,cy-100,'韩语字母之旅',{fontSize:'42px',fontFamily:'Barlow',color:'#333'}).setOrigin(0.5);
+        this.add.text(cx,cy-20,'Level 2: 辅音+元音完整学习',{fontSize:'20px',fontFamily:'Noto Sans KR',color:'#666'}).setOrigin(0.5);
+        this.add.text(cx,cy+60,'功能: 音节拼图 | 单词挑战',{fontSize:'16px',fontFamily:'Noto Sans KR',color:'#888'}).setOrigin(0.5);
+        this.add.text(cx,cy+120,'© 2026 小星星',{fontSize:'14px',color:'#999'}).setOrigin(0.5);
+        this.add.text(cx,cy+180,'← 返回',{fontSize:'18px',color:'#666'}).setOrigin(0.5).setInteractive().on('pointerdown',()=>this.scene.start('MenuScene'));
+    }
+}
+
+// ========== 启动 ==========
+GAME_CONFIG.scene = [BootScene, MenuScene, SyllableScene, WordScene, AboutScene];
+console.log('[init] 启动游戏...');
+try {
+    window.game = new Phaser.Game(GAME_CONFIG);
+    console.log('[init] ✅ 游戏已启动');
+} catch(e) {
+    console.error('[init] ❌',e);
+    document.getElementById('game-container').innerHTML = `<h1 style="color:red">启动失败: ${e.message}</h1>`;
+}
+    </script>
+</body>
+</html>
