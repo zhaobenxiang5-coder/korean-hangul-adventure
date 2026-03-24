@@ -8,350 +8,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.14.2/gsap.min.js"></script>
     <script src="level3-data.js"></script>
     <style>
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-
-class GrammarScene extends BaseScene {
-    constructor(){super('GrammarScene'); this.dragListeners = []; this.timers = [];}
-    shutdown(){
-        console.log('[GrammarScene] 清理资源...');
-        this.dragListeners.forEach(({event, func}) => this.input.off(event, func));
-        this.dragListeners = [];
-        this.timers.forEach(timer => this.time.removeEvent(timer));
-        this.timers = [];
-        if(this.children) this.children.removeAll();
-    }
-    create(){
-        console.log('[Grammar]'); const cx=this.cameras.main.centerX, cy=this.cameras.main.centerY;
-        this.cameras.main.setBackgroundColor('#F7F7F7');
-        
-        // 标题
-        const title = this.add.text(cx, cy-180, '📚 韩语语法基础', {
-            fontSize:'36px', fontFamily:'Barlow', color:'#4ECDC4', fontStyle:'bold'
-        }).setOrigin(0.5);
-        this.trackDOMRef('title', title);
-        
-        // SOV 结构展示
-        const sovy = cy-80;
-        const subjects = ['나', '저', '우리', '너', '그'];
-        const objects = ['사과', '책', '차', '집', '선물'];
-        const verbs = ['먹다', '읽다', '마시다', '가다', '주다'];
-        
-        // 随机选一个例句
-        const idx = Math.floor(Math.random()*subjects.length);
-        const parts = [subjects[idx], objects[idx], verbs[idx]];
-        const colors = ['#FF6B6B', '#4ECDC4', '#8B5CF6']; // 主语-宾语-动词
-        
-        parts.forEach((part, i) => {
-            const x = cx + (i-1)*180;
-            const txt = this.add.text(x, sovy, part, {
-                fontSize:'32px', fontFamily:'Noto Sans KR', color:colors[i], fontStyle:'bold'
-            }).setOrigin(0.5).setAlpha(0).setScale(0.5);
-            this.trackDOMRef(`part${i}`, txt);
-            // GSAP 动画
-            gsap.to(txt, { alpha: 1, scale: 1, duration: 0.6, delay: i*0.2, ease: "back.out(1.7)" });
-        });
-        
-        // 说明
-        const descY = sovy + 100;
-        this.add.text(cx, descY, '🇰🇷 韩语句子结构: 주술어 (SOV)', {
-            fontSize:'22px', fontFamily:'Barlow', color:'#333'
-        }).setOrigin(0.5);
-        this.add.text(cx, descY+40, '主语 + 宾语 + 动词', {
-            fontSize:'20px', fontFamily:'Noto Sans KR', color:'#666'
-        }).setOrigin(0.5);
-        
-        // 示例标签
-        const labels = ['主语 (주어)', '宾语 (목적어)', '动词 (동사)'];
-        labels.forEach((label, i) => {
-            const x = cx + (i-1)*180;
-            this.add.text(x, sovy+60, label, {
-                fontSize:'16px', fontFamily:'Barlow', color:colors[i]
-            }).setOrigin(0.5);
-        });
-        
-        // 返回按钮
-        const backBtn = this.add.text(cx, cy+200, '🔙 返回语法列表', {
-            fontSize:'20px', fontFamily:'Barlow', color:'#4ECDC4',
-            backgroundColor:'#FFFFFF', padding:{x:20,y:12}, borderRadius:'12px'
-        }).setOrigin(0.5).setInteractive();
-        const backHandler = ()=>this.scene.start('MenuScene');
-        backBtn.on('pointerdown', backHandler);
-        this.dragListeners.push({event:'pointerdown', func:backHandler, target:backBtn});
-        
-        // 添加 hover 效果
-        backBtn.on('pointerover', ()=>backBtn.setScale(1.05));
-        backBtn.on('pointerout', ()=>backBtn.setScale(1));
-    }
-}
-
-class SentencePuzzleScene extends BaseScene {
-    constructor(){super('SentencePuzzleScene'); this.dragListeners = []; this.timers = []; this.draggables = []; this.slots = []; this.dragData = null;}
-    shutdown(){
-        console.log('[SentencePuzzle] 清理资源...');
-        this.dragListeners.forEach(({event, func}) => this.input.off(event, func));
-        this.dragListeners = [];
-        this.timers.forEach(timer => this.time.removeEvent(timer));
-        this.timers = [];
-        if(this.children) this.children.removeAll();
-    }
-    create(){
-        console.log('[SentencePuzzle]'); const cx=this.cameras.main.centerX, cy=this.cameras.main.centerY;
-        this.cameras.main.setBackgroundColor('#F7F7F7');
-        
-        // 目标句子（打乱）
-        const sentences = [
-            { original: ['나는', '사과를', '먹는다'], meaning: '我吃苹果' },
-            { original: ['그는', '책을', '읽는다'], meaning: '他读书' },
-            { original: ['우리는', '차를', '마신다'], meaning: '我们喝茶' }
-        ];
-        const puzzleIdx = Math.floor(Math.random()*sentences.length);
-        const target = sentences[puzzleIdx].original;
-        const meaning = sentences[puzzleIdx].meaning;
-        this.currentAnswer = [...target];
-        
-        // 标题
-        const title = this.add.text(cx, cy-180, '🧩 句子拼图: 排序单词', {
-            fontSize:'32px', fontFamily:'Barlow', color:'#FF6B6B', fontStyle:'bold'
-        }).setOrigin(0.5);
-        this.trackDOMRef('title', title);
-        
-        // 显示中文意思（提示）
-        this.add.text(cx, cy-130, `意思: ${meaning}`, {
-            fontSize:'22px', fontFamily:'Noto Sans KR', color:'#666'
-        }).setOrigin(0.5);
-        
-        // 打乱单词
-        const scrambled = [...target].sort(() => Math.random()-0.5);
-        const slotSize = 120;
-        const startX = cx - (target.length-1)*slotSize/2;
-        const slotY = cy-40;
-        
-        // 放置槽位
-        this.slots = [];
-        for(let i=0; i<target.length; i++) {
-            const slot = this.add.rectangle(startX + i*slotSize, slotY, 100, 60, 0xFFFFFF)
-                .setStrokeStyle(3, 0xCCCCCC)
-                .setInteractive({ dropTarget: true });
-            this.slots.push({obj: slot, index: i});
-            this.trackDOMRef(`slot${i}`, slot);
-        }
-        
-        // 放置可拖拽单词
-        const dragY = cy+100;
-        this.draggables = [];
-        scrambled.forEach((word, idx) => {
-            const x = cx - (scrambled.length-1)*80/2 + idx*80;
-            const txt = this.add.text(x, dragY, word, {
-                fontSize:'28px', fontFamily:'Noto Sans KR', color:'#333',
-                backgroundColor:"#F0F0F0", padding:{x:20,y:12}, borderRadius:"10px"
-            }).setOrigin(0.5).setInteractive({ draggable: true });
-            this.trackDOMRef(`drag${idx}`, txt);
-            this.draggables.push({obj: txt, word: word, placed: false, slotIndex: -1});
-        });
-        
-        // 检查按钮
-        const checkBtn = this.add.text(cx, cy+200, '✅ 检查答案', {
-            fontSize:'22px', fontFamily:'Barlow', color:'#10B981',
-            backgroundColor:'#FFFFFF', padding:{x:25,y:15}, borderRadius:'12px'
-        }).setOrigin(0.5).setInteractive();
-        checkBtn.on('pointerdown', ()=>this.checkAnswer());
-        
-        // 返回按钮
-        const backBtn = this.add.text(cx, cy+260, '🔙 返回', {
-            fontSize:'20px', fontFamily:'Barlow', color:'#4ECDC4',
-            backgroundColor:'#FFFFFF', padding:{x:20,y:12}, borderRadius:'12px'
-        }).setOrigin(0.5).setInteractive();
-        const backHandler = ()=>this.scene.start('MenuScene');
-        backBtn.on('pointerdown', backHandler);
-        this.dragListeners.push({event:'pointerdown', func:backHandler, target:backBtn});
-        
-        // 拖拽逻辑
-        this.input.on('dragstart', (pointer, gameObject) => {
-            const drag = this.draggables.find(d => d.obj===gameObject);
-            if(drag && !drag.placed) {
-                this.dragData = drag;
-                this.children.bringToTop(gameObject);
-            }
-        });
-        
-        this.input.on('drag', (pointer, gameObject, dragX, dragY) => {
-            gameObject.x = dragX;
-            gameObject.y = dragY;
-        });
-        
-        this.input.on('dragend', (pointer, gameObject) => {
-            if(this.dragData) {
-                // 检查是否在槽位上方
-                let placed = false;
-                this.slots.forEach(slot => {
-                    const dist = Math.abs(gameObject.x - slot.obj.x) + Math.abs(gameObject.y - slot.obj.y);
-                    if(dist < 60) {
-                        // 找到最近空槽
-                        if(!this.draggables.some(d => d.placed && d.slotIndex===slot.index)) {
-                            gameObject.x = slot.obj.x;
-                            gameObject.y = slot.obj.y;
-                            this.dragData.placed = true;
-                            this.dragData.slotIndex = slot.index;
-                            placed = true;
-                        }
-                    }
-                });
-                if(!placed) {
-                    gameObject.x = dragY; // 错误用法，应保存原始位置
-                    // 简化：不归位，留在原地
-                }
-                this.dragData = null;
-            }
-        });
-    }
-    
-    checkAnswer(){
-        const userOrder = [];
-        for(let i=0; i<this.currentAnswer.length; i++) {
-            const placed = this.draggables.find(d => d.placed && d.slotIndex===i);
-            if(placed) userOrder.push(placed.word);
-        }
-        
-        const correct = userOrder.length===this.currentAnswer.length && 
-                       userOrder.every((w,i)=>w===this.currentAnswer[i]);
-        
-        if(correct) {
-            // GSAP 庆祝动画
-            this.cameras.main.flash(500, 16, 185, 16);
-            gsap.to(this.children.list, { scale: 1.1, duration: 0.3, yoyo: true, repeat: 1 });
-            this.showToast('🎉 正确！语法掌握得真好~', 'success');
-            this.time.delayedCall(800, ()=>this.scene.start('GrammarScene'));
-        } else {
-            this.showToast('❌ 顺序不太对哦，再试试看~', 'warning');
-        }
-    }
-    
-    showToast(msg, type='info'){
-        const cx=this.cameras.main.centerX, cy=this.cameras.main.centerY;
-        const colors = {success:'#10B981', warning:'#F59E0B', error:'#EF4444', info:'#4ECDC4'};
-        const toast = this.add.text(cx, cy+240, msg, {
-            fontSize:'22px', fontFamily:'Barlow', color:colors[type]||colors.info,
-            backgroundColor:'#FFFFFF', padding:{x:20,y:12}, borderRadius:'12px'
-        }).setOrigin(0.5).setAlpha(0);
-        gsap.to(toast, { alpha: 1, y: -20, duration: 0.4, yoyo: true, repeat: 1 });
-        this.timers.push(this.time.delayedCall(2000, ()=>toast.destroy()));
-    }
-}
-
-class PolitenessQuizScene extends BaseScene {
-    constructor(){super('PolitenessQuizScene'); this.dragListeners = []; this.timers = []; this.correctCount = 0; this.currentQuestion = 0; this.totalQuestions = 3;}
-    shutdown(){
-        console.log('[PolitenessQuiz] 清理资源...');
-        this.dragListeners.forEach(({event, func}) => this.input.off(event, func));
-        this.dragListeners = [];
-        this.timers.forEach(timer => this.time.removeEvent(timer));
-        this.timers = [];
-        if(this.children) this.children.removeAll();
-    }
-    create(){
-        console.log('[PolitenessQuiz]'); const cx=this.cameras.main.centerX, cy=this.cameras.main.centerY;
-        this.cameras.main.setBackgroundColor('#F7F7F7');
-        
-        // 题库
-        const questions = [
-            {
-                scenario: '对陌生人询问方向',
-                options: [
-                    {text: '어디예요?', correct: false, reason: '太随意，应用ryo 或 hapshida'},
-                    {text: '어디에요?', correct: false, reason: '仍需敬语'},
-                    {text: '어디십니까?', correct: true, reason: '正式敬语'},
-                    {text: '어디냐?', correct: false, reason: '非常不礼貌'}
-                ]
-            },
-            {
-                scenario: '对朋友说"我们一起吃饭吧"',
-                options: [
-                    {text: '같이 먹자!', correct: true, reason: '朋友间casual表达'},
-                    {text: '같이 먹으십시오.', correct: false, reason: '对朋友过于正式'},
-                    {text: '같이 먹어요?', correct: false, reason: '疑问句，非提议'},
-                    {text: '같이 먹습니다.', correct: false, reason: '太生硬'}
-                ]
-            }
-        ];
-        const q = questions[Math.floor(Math.random()*questions.length)];
-        this.correctCount = 0;
-        this.totalQuestions = 3;
-        
-        // 场景描述
-        this.add.text(cx, cy-180, `🎯 场景: ${q.scenario}`, {
-            fontSize:'26px', fontFamily:'Barlow', color:'#333', fontStyle:'bold'
-        }).setOrigin(0.5).setMaxWidth(600).setWrap(true);
-        
-        // 选项按钮
-        const startY = cy-80;
-        q.options.forEach((opt, idx) => {
-            const y = startY + idx*70;
-            const btn = this.add.text(cx, y, opt.text, {
-                fontSize:'24px', fontFamily:'Noto Sans KR', color:'#333',
-                backgroundColor:'#FFFFFF', padding:{x:30,y:15}, borderRadius:'12px'
-            }).setOrigin(0.5).setInteractive();
-            
-            btn.on('pointerdown', async ()=>{
-                // 禁用所有按钮
-                q.options.forEach(o => o.btn.setInteractive(false));
-                
-                // 显示反馈
-                const feedback = opt.correct ? '✅ 正确！' : `❌ 错误：${opt.reason}`;
-                const color = opt.correct ? '#10B981' : '#EF4444';
-                this.add.text(cx, y+50, feedback, {
-                    fontSize:'18px', fontFamily:'Barlow', color:color,
-                    backgroundColor:'#FFF', padding:{x:15,y:8}, borderRadius:'8px'
-                }).setOrigin(0.5);
-                
-                if(opt.correct) this.correctCount++;
-                
-                // GSAP 动画
-                gsap.to(btn, { x: cx + (opt.correct?10:-10), duration: 0.1, yoyo: true, repeat: 3 });
-                
-                // 延迟后进入下一题或结束
-                this.time.delayedCall(1500, ()=>{
-                    if(this.currentQuestion < questions.length-1) {
-                        this.currentQuestion++;
-                        this.scene.restart();
-                    } else {
-                        this.showResult();
-                    }
-                });
-            });
-            opt.btn = btn; // 保存引用以便禁用
-        });
-        this.currentQuestion = 0;
-        
-        // 返回按钮
-        const backBtn = this.add.text(cx, cy+200, '🔙 返回', {
-            fontSize:'20px', fontFamily:'Barlow', color:'#4ECDC4',
-            backgroundColor:'#FFFFFF', padding:{x:20,y:12}, borderRadius:'12px'
-        }).setOrigin(0.5).setInteractive();
-        const backHandler = ()=>this.scene.start('MenuScene');
-        backBtn.on('pointerdown', backHandler);
-        this.dragListeners.push({event:'pointerdown', func:backHandler, target:backBtn});
-    }
-    
-    showResult(){
-        const cx=this.cameras.main.centerX, cy=this.cameras.main.centerY;
-        const score = this.correctCount / this.totalQuestions;
-        let msg = score===1 ? '🌟 完美！敬语大师！' : score>=0.6 ? '👍 不错！继续加油！' : '💪 还需多练习哦~';
-        const color = score===1 ? '#8B5CF6' : score>=0.6 ? '#10B981' : '#FF6B6B';
-        
-        this.add.text(cx, cy, `得分: ${this.correctCount}/${this.totalQuestions}`, {
-            fontSize:'36px', fontFamily:'Barlow', color:color
-        }).setOrigin(0.5);
-        this.add.text(cx, cy+50, msg, {
-            fontSize:'22px', fontFamily:'Barlow', color:'#666'
-        }).setOrigin(0.5);
-        
-        gsap.to(this.children.list, { scale: 1.05, duration: 0.4, yoyo: true, repeat: -1 });
-        
-        this.time.delayedCall(2500, ()=>this.scene.start('MenuScene'));
-    }
-}
-
-body{margin:0;padding:0;font-family:'Noto Sans KR','Barlow',sans-serif;background:#F7F7F7;overflow:hidden;min-height:100vh}#game-container{width:100vw;height:100vh;height:100dvh;display:flex;justify-content:center;align-items:center;position:fixed;top:0;left:0;background:#F7F7F7}#game-container canvas{width:100%!important;height:100%!important;border-radius:0}@media (max-width:768px){#game-container canvas{max-width:90vw;max-height:90vh;border-radius:12px}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}body{margin:0;padding:0;font-family:'Noto Sans KR','Barlow',sans-serif;background:#F7F7F7;overflow:hidden;min-height:100vh}#game-container{width:100vw;height:100vh;height:100dvh;display:flex;justify-content:center;align-items:center;position:fixed;top:0;left:0;background:#F7F7F7}#game-container canvas{width:100%!important;height:100%!important;border-radius:0}@media (max-width:768px){#game-container canvas{max-width:90vw;max-height:90vh;border-radius:12px}}
     </style>
 </head>
 <body>
@@ -619,10 +276,6 @@ const GameState = {
     // Phase 3: 语法基础状态
     grammarPointIndex: 0,
     sentencePuzzleCompleted: false,
-    politenessQuizScore: 0,
-    // Phase 3: 语法基础状态
-    grammarPointIndex: 0,
-    sentencePuzzleCompleted: false,
     politenessQuizScore: 0
 };
 
@@ -766,10 +419,7 @@ class MenuScene extends BaseScene {
         mk('📚 学习新单词',170,'#10B981','WordScene');
         mk('🌟 Level 3 韵尾挑战',240,'#8B5CF6','FinalScene');  // 新增 Level 3
         mk('🧩 韵尾拼图挑战',310,'#FF6B6B','FinalChallengeScene');  // Phase 2 新增
-        mk('📚 语法基础',380,'#10B981','GrammarScene');  // Phase 3 新增
-        mk('🧩 句子拼图',450,'#8B5CF6','SentencePuzzleScene');  // Phase 3 新增
-        mk('🎯 敬语测验',520,'#FF6B6B','PolitenessQuizScene');  // Phase 3 新增
-        mk('ℹ️ 游戏资料',590,'#6B7280','AboutScene');
+        mk('ℹ️ 游戏资料',380,'#6B7280','AboutScene');
         this.add.text(cx,580,'v3.0 开发中...',{fontSize:'12px',color:'#999'}).setOrigin(0.5);
     }
 }
@@ -1718,6 +1368,7 @@ class FinalChallengeScene extends BaseScene {
     }
 }
 
+
 class GrammarScene extends BaseScene {
     constructor(){super('GrammarScene'); this.dragListeners = []; this.timers = [];}
     shutdown(){
@@ -1746,7 +1397,6 @@ class GrammarScene extends BaseScene {
         
         // 随机选一个例句
         const idx = Math.floor(Math.random()*subjects.length);
-        const sentence = `${subjects[idx]} ${objects[idx]} ${verbs[idx]}`;
         const parts = [subjects[idx], objects[idx], verbs[idx]];
         const colors = ['#FF6B6B', '#4ECDC4', '#8B5CF6']; // 主语-宾语-动词
         
@@ -1783,8 +1433,9 @@ class GrammarScene extends BaseScene {
             fontSize:'20px', fontFamily:'Barlow', color:'#4ECDC4',
             backgroundColor:'#FFFFFF', padding:{x:20,y:12}, borderRadius:'12px'
         }).setOrigin(0.5).setInteractive();
-        backBtn.on('pointerdown', ()=>this.scene.start('MenuScene'));
-        this.dragListeners.push({event:'pointerdown', func:backBtn, target:backBtn});
+        const backHandler = ()=>this.scene.start('MenuScene');
+        backBtn.on('pointerdown', backHandler);
+        this.dragListeners.push({event:'pointerdown', func:backHandler, target:backBtn});
         
         // 添加 hover 效果
         backBtn.on('pointerover', ()=>backBtn.setScale(1.05));
@@ -1793,7 +1444,7 @@ class GrammarScene extends BaseScene {
 }
 
 class SentencePuzzleScene extends BaseScene {
-    constructor(){super('SentencePuzzleScene'); this.dragListeners = []; this.timers = [];}
+    constructor(){super('SentencePuzzleScene'); this.dragListeners = []; this.timers = []; this.draggables = []; this.slots = []; this.dragData = null;}
     shutdown(){
         console.log('[SentencePuzzle] 清理资源...');
         this.dragListeners.forEach(({event, func}) => this.input.off(event, func));
@@ -1851,8 +1502,8 @@ class SentencePuzzleScene extends BaseScene {
             const x = cx - (scrambled.length-1)*80/2 + idx*80;
             const txt = this.add.text(x, dragY, word, {
                 fontSize:'28px', fontFamily:'Noto Sans KR', color:'#333',
-                backgroundColor:"#F0F0F0", padding:{x:20,y:12}, borderRadius:"10px"
-            }).setOrigin(0.5).setInteractive();
+                backgroundColor:'#F0F0F0', padding:{x:15,y:8}, borderRadius:'8px'
+            }).setOrigin(0.5).setInteractive({ draggable: true });
             this.trackDOMRef(`drag${idx}`, txt);
             this.draggables.push({obj: txt, word: word, placed: false, slotIndex: -1});
         });
@@ -1863,6 +1514,15 @@ class SentencePuzzleScene extends BaseScene {
             backgroundColor:'#FFFFFF', padding:{x:25,y:15}, borderRadius:'12px'
         }).setOrigin(0.5).setInteractive();
         checkBtn.on('pointerdown', ()=>this.checkAnswer());
+        
+        // 返回按钮
+        const backBtn = this.add.text(cx, cy+260, '🔙 返回', {
+            fontSize:'20px', fontFamily:'Barlow', color:'#4ECDC4',
+            backgroundColor:'#FFFFFF', padding:{x:20,y:12}, borderRadius:'12px'
+        }).setOrigin(0.5).setInteractive();
+        const backHandler = ()=>this.scene.start('MenuScene');
+        backBtn.on('pointerdown', backHandler);
+        this.dragListeners.push({event:'pointerdown', func:backHandler, target:backBtn});
         
         // 拖拽逻辑
         this.input.on('dragstart', (pointer, gameObject) => {
@@ -1938,7 +1598,7 @@ class SentencePuzzleScene extends BaseScene {
 }
 
 class PolitenessQuizScene extends BaseScene {
-    constructor(){super('PolitenessQuizScene'); this.dragListeners = []; this.timers = [];}
+    constructor(){super('PolitenessQuizScene'); this.dragListeners = []; this.timers = []; this.correctCount = 0; this.currentQuestion = 0; this.totalQuestions = 3;}
     shutdown(){
         console.log('[PolitenessQuiz] 清理资源...');
         this.dragListeners.forEach(({event, func}) => this.input.off(event, func));
@@ -2026,8 +1686,9 @@ class PolitenessQuizScene extends BaseScene {
             fontSize:'20px', fontFamily:'Barlow', color:'#4ECDC4',
             backgroundColor:'#FFFFFF', padding:{x:20,y:12}, borderRadius:'12px'
         }).setOrigin(0.5).setInteractive();
-        backBtn.on('pointerdown', ()=>this.scene.start('MenuScene'));
-        this.dragListeners.push({event:'pointerdown', func:backBtn, target:backBtn});
+        const backHandler = ()=>this.scene.start('MenuScene');
+        backBtn.on('pointerdown', backHandler);
+        this.dragListeners.push({event:'pointerdown', func:backHandler, target:backBtn});
     }
     
     showResult(){
@@ -2099,7 +1760,7 @@ class AboutScene extends BaseScene {
 
 // ========== 启动 ==========
 initData(1);
-GAME_CONFIG.scene = [BootScene, MenuScene, LearnScene, PuzzleScene, SyllableScene, WordScene, FinalScene, FinalChallengeScene, GrammarScene, SentencePuzzleScene, PolitenessQuizScene, CompleteScene, AboutScene];;
+GAME_CONFIG.scene = [BootScene, MenuScene, LearnScene, PuzzleScene, SyllableScene, WordScene, FinalScene, FinalChallengeScene, GrammarScene, SentencePuzzleScene, PolitenessQuizScene, CompleteScene, AboutScene];
 console.log('[init] 启动...');
 try { window.game = new Phaser.Game(GAME_CONFIG); console.log('[init] ✅'); }
 catch(e) { console.error('[init] ❌',e); document.getElementById('game-container').innerHTML = `<h1 style="color:red">启动失败: ${e.message}</h1>`; }
