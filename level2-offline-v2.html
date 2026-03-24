@@ -338,11 +338,21 @@ class BaseScene extends Phaser.Scene {
         console.log(`[${this.key}] 清理资源...`);
         
         // 移除事件监听器
+        // 移除事件监听器
         this.dragListeners.forEach(({event, func, target}) => {
-            if (target) target.off(event, func);
-            else this.input.off(event, func);
+            if (target) {
+                if (target.off) target.off(event, func);
+            } else {
+                if (this.input.off) this.input.off(event, func);
+            }
         });
         this.dragListeners = [];
+        
+        // 强制清理全局输入监听器（防止遗漏）
+        if (this.input && this.input.off) {
+            this.input.off(this); // 移除所有 scene 相关的输入监听
+        }
+
         
         // 清除定时器
         this.timers.forEach(timer => this.time.removeEvent(timer));
