@@ -748,13 +748,17 @@ class FinalScene extends BaseScene {
             
             // 如果总高度 > 300，添加拖拽滚动
             if (gridHeight > 300) {
-                this.input.on('drag', (pointer, dragX, dragY) => {
+                const dragHandler = (pointer, dragX, dragY) => {
                     const newY = gridContainer.y + (dragY - this.dragStartY);
                     gridContainer.y = Phaser.Math.Clamp(newY, -maxDrag, 0);
-                });
-                this.input.on('dragstart', (pointer) => {
+                };
+                const dragstartHandler = (pointer) => {
                     this.dragStartY = gridContainer.y;
-                });
+                };
+                this.input.on('drag', dragHandler);
+                this.input.on('dragstart', dragstartHandler);
+                this.dragListeners.push({event:'drag', func:dragHandler, target:this.input});
+                this.dragListeners.push({event:'dragstart', func:dragstartHandler, target:this.input});
             }
 
             // 滚动提示 & 鼓励文案
@@ -1525,27 +1529,24 @@ class SentencePuzzleScene extends BaseScene {
         this.dragListeners.push({event:'pointerdown', func:backHandler, target:backBtn});
         
         // 拖拽逻辑
-        this.input.on('dragstart', (pointer, gameObject) => {
+        const dragstartHandler = (pointer, gameObject) => {
             const drag = this.draggables.find(d => d.obj===gameObject);
             if(drag && !drag.placed) {
                 this.dragData = drag;
                 this.children.bringToTop(gameObject);
             }
-        });
-        
-        this.input.on('drag', (pointer, gameObject, dragX, dragY) => {
+        };
+        const dragHandler = (pointer, gameObject, dragX, dragY) => {
             gameObject.x = dragX;
             gameObject.y = dragY;
-        });
-        
-        this.input.on('dragend', (pointer, gameObject) => {
+        };
+        const dragendHandler = (pointer, gameObject) => {
             if(this.dragData) {
                 // 检查是否在槽位上方
                 let placed = false;
                 this.slots.forEach(slot => {
                     const dist = Math.abs(gameObject.x - slot.obj.x) + Math.abs(gameObject.y - slot.obj.y);
                     if(dist < 60) {
-                        // 找到最近空槽
                         if(!this.draggables.some(d => d.placed && d.slotIndex===slot.index)) {
                             gameObject.x = slot.obj.x;
                             gameObject.y = slot.obj.y;
@@ -1556,12 +1557,17 @@ class SentencePuzzleScene extends BaseScene {
                     }
                 });
                 if(!placed) {
-                    gameObject.x = dragY; // 错误用法，应保存原始位置
-                    // 简化：不归位，留在原地
+                    // 暂不归位
                 }
                 this.dragData = null;
             }
-        });
+        };
+        this.input.on('dragstart', dragstartHandler);
+        this.input.on('drag', dragHandler);
+        this.input.on('dragend', dragendHandler);
+        this.dragListeners.push({event:'dragstart', func:dragstartHandler, target:this.input});
+        this.dragListeners.push({event:'drag', func:dragHandler, target:this.input});
+        this.dragListeners.push({event:'dragend', func:dragendHandler, target:this.input});;
     }
     
     checkAnswer(){
