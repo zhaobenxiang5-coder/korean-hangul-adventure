@@ -100,6 +100,150 @@ function initData(lvl) {
     console.log(`[Data] Level ${lvl} 加载: ${HANGUL_DATA.length} 字母`);
 }
 
+// ========== Analytics Tracker (Phase 2) ==========
+class FinalChallengeAnalyticsTracker {
+  constructor() {
+    this.storageKey = 'hangul_level3_puzzle_analytics';
+    this.currentSession = null;
+    this.puzzleStartTimes = new Map();
+    this.init();
+  }
+
+  init() {
+    const stored = localStorage.getItem(this.storageKey);
+    if (stored) {
+      try { this.data = JSON.parse(stored); } 
+      catch (e) { this.resetData(); }
+    } else { this.resetData(); }
+  }
+
+  resetData() {
+    this.data = {
+      sessions: [],
+      totalScore: 0,
+      puzzlesCompleted: [],
+      hintsUsed: 0,
+      totalTime: 0,
+      puzzleAttempts: [],
+      difficultyStats: {
+        easy: { completed: 0, attempts: 0, totalTime: 0 },
+        medium: { completed: 0, attempts: 0, totalTime: 0 },
+        hard: { completed: 0, attempts: 0, totalTime: 0 }
+      },
+      hintUsage: { totalHints: 0, puzzlesWithHints: new Set() }
+    };
+  }
+
+  trackPuzzleStart(level, difficulty) {
+    this.currentSession = { level, difficulty, startTime: Date.now(), attempts: 0, successes: 0, failures: 0, hintsUsed: 0, resetsUsed: 0, puzzles: [] };
+    const puzzleId = `${level}_${difficulty}_${Date.now()}`;
+    this.puzzleStartTimes.set(puzzleId, Date.now());
+    return puzzleId;
+  }
+
+  trackPuzzleComplete(puzzleId, success, timeMs, hintsUsed = 0) {
+    if (!this.currentSession) return;
+    const startTime = this.puzzleStartTimes.get(puzzleId);
+    const actualTime = timeMs || (startTime ? Date.now() - startTime : 0);
+    if (success) { this.currentSession.successes++; this.data.totalScore += 100; }
+    else { this.currentSession.failures++; }
+    const puzzle = this.currentSession.puzzles.find(p => p.puzzleId === puzzleId);
+    if (puzzle) { puzzle.success = success; puzzle.timeMs = actualTime; puzzle.hintsUsed = hintsUsed; }
+    const diff = this.currentSession.difficulty;
+    if (this.data.difficultyStats[diff]) {
+      this.data.difficultyStats[diff].attempts++;
+      if (success) { this.data.difficultyStats[diff].completed++; this.data.difficultyStats[diff].totalTime += actualTime; }
+    }
+    if (hintsUsed > 0) {
+      this.data.hintUsage.totalHints += hintsUsed;
+      this.data.hintUsage.puzzlesWithHints.add(puzzleId);
+      this.currentSession.hintsUsed += hintsUsed;
+    }
+    this.data.totalTime += actualTime;
+    this.puzzleStartTimes.delete(puzzleId);
+  }
+
+  trackHintUsed(puzzleId) {
+    if (!this.currentSession) return;
+    this.currentSession.hintsUsed++;
+    const puzzle = this.currentSession.puzzles.find(p => p.puzzleId === puzzleId);
+    if (puzzle) puzzle.hintsUsed = (puzzle.hintsUsed || 0) + 1;
+  }
+
+  trackResetUsed() {
+    if (!this.currentSession) return;
+    this.currentSession.resetsUsed++;
+  }
+
+  endSession() {
+    if (!this.currentSession) return;
+    this.currentSession.endTime = Date.now();
+    this.currentSession.duration = this.currentSession.endTime - this.currentSession.startTime;
+    this.data.sessions.push(this.currentSession);
+    this.currentSession.puzzles.forEach(puzzle => {
+      if (puzzle.success) {
+        this.data.puzzlesCompleted.push({
+          puzzleId: puzzle.puzzleId,
+          difficulty: this.currentSession.difficulty,
+          timeMs: puzzle.timeMs,
+          hintsUsed: puzzle.hintsUsed || 0
+        });
+      }
+    });
+    this.save();
+    this.currentSession = null;
+  }
+
+  save() {
+    try {
+      const serializableData = {
+        ...this.data,
+        hintUsage: { totalHints: this.data.hintUsage.totalHints, puzzlesWithHints: Array.from(this.data.hintUsage.puzzlesWithHints) }
+      };
+      localStorage.setItem(this.storageKey, JSON.stringify(serializableData));
+    } catch (e) { console.error('Failed to save analytics:', e); }
+  }
+
+  getPuzzleInsights() {
+    const totalAttempts = this.data.puzzleAttempts.length;
+    const totalSuccesses = this.data.puzzlesCompleted.length;
+    const successRate = totalAttempts > 0 ? (totalSuccesses / totalAttempts) * 100 : 0;
+    const avgTime = totalSuccesses > 0 ? this.data.totalTime / totalSuccesses : 0;
+    const hintDep = totalSuccesses > 0 ? (this.data.hintUsage.totalHints / totalSuccesses) : 0;
+    
+    const difficultyPerformance = {};
+    Object.keys(this.data.difficultyStats).forEach(d => {
+      const s = this.data.difficultyStats[d];
+      const cr = s.attempts > 0 ? (s.completed / s.attempts) * 100 : 0;
+      difficultyPerformance[d] = { attempts: s.attempts, completed: s.completed, completionRate: cr.toFixed(1)+'%', avgTime: s.completed>0 ? this.formatDuration(s.totalTime/s.completed) : '0s' };
+    });
+
+    return {
+      overview: {
+        totalAttempts, totalSuccesses,
+        successRate: successRate.toFixed(1)+'%',
+        totalScore: this.data.totalScore,
+        avgTimePerPuzzle: this.formatDuration(avgTime)
+      },
+      hintUsage: { totalHints: this.data.hintUsage.totalHints, puzzlesWithHints: this.data.hintUsage.puzzlesWithHints.size, hintDependency: hintDep.toFixed(2) },
+      difficultyPerformance,
+      sessions: { totalSessions: this.data.sessions.length }
+    };
+  }
+
+  formatDuration(ms) {
+    if (!ms || ms < 1000) return '0s';
+    const s = Math.floor(ms/1000), m = Math.floor(s/60), h = Math.floor(m/60);
+    if (h>0) return `${h}h ${m%60}m`;
+    if (m>0) return `${m}m ${s%60}s`;
+    return `${s}s`;
+  }
+
+  clearAll() { this.resetData(); localStorage.removeItem(this.storageKey); }
+}
+
+if (typeof window !== 'undefined') window.FinalChallengeAnalyticsTracker = FinalChallengeAnalyticsTracker;
+
 // ========== 配置 ==========
 const GAME_CONFIG = {
     type: Phaser.AUTO, width:800, height:600, parent:'game-container',
@@ -118,6 +262,17 @@ const GameState = {
     // Level 3 状态
     currentFinalIndex: 0,
     completedFinals: [],
+    // Level 3 Phase 2: FinalChallenge 拼图
+    currentPuzzleIndex: 0,
+    puzzleScore: 0,
+    completedPuzzles: [],
+    bestTime: null,
+    totalPuzzlesCompleted: 0,
+    accuracyRate: 0,
+    currentDifficulty: 'EASY',
+    combo: 0,
+    maxCombo: 0
+};
     grammarPointIndex: 0
 };
 
@@ -260,7 +415,8 @@ class MenuScene extends BaseScene {
         mk('⚡ 立即挑战',100,'#FF6B6B','SyllableScene');
         mk('📚 学习新单词',170,'#10B981','WordScene');
         mk('🌟 Level 3 韵尾挑战',240,'#8B5CF6','FinalScene');  // 新增 Level 3
-        mk('ℹ️ 游戏资料',310,'#6B7280','AboutScene');
+        mk('🧩 韵尾拼图挑战',310,'#FF6B6B','FinalChallengeScene');  // Phase 2 新增
+        mk('ℹ️ 游戏资料',380,'#6B7280','AboutScene');
         this.add.text(cx,580,'v3.0 开发中...',{fontSize:'12px',color:'#999'}).setOrigin(0.5);
     }
 }
@@ -696,6 +852,396 @@ class FinalScene extends BaseScene {
     }
 }
 
+// ========== Level 3 Phase 2: FinalChallengeScene (韵尾拼图) ==========
+class FinalChallengeScene extends BaseScene {
+    constructor(){super('FinalChallengeScene'); this.dragListeners = []; this.timers = [];}
+    
+    shutdown(){
+        console.log('[FinalChallenge] 清理资源...');
+        this.dragListeners.forEach(({event, func}) => this.input.off(event, func));
+        this.dragListeners = [];
+        this.timers.forEach(timer => this.time.removeEvent(timer));
+        this.timers = [];
+        if(this.children) this.children.removeAll();
+    }
+    
+    create(){
+        console.log('[FinalChallenge] 韵尾拼图挑战');
+        initData(3);
+        this.cameras.main.setBackgroundColor('#F7F7F7');
+        const cx = this.cameras.main.centerX, cy = this.cameras.main.centerY;
+        
+        // 初始化 Analytics
+        this.analytics = new FinalChallengeAnalyticsTracker();
+        
+        // 初始化拼图状态
+        this.puzzlePool = [];
+        this.currentPuzzle = null;
+        this.draggables = [];
+        this.targets = [];
+        this.startTime = 0;
+        this.elapsed = 0;
+        
+        // 难度选择界面
+        this.showDifficultySelection();
+    }
+    
+    showDifficultySelection(){
+        const cx = this.cameras.main.centerX, cy = this.cameras.main.centerY;
+        this.add.text(cx, cy-120, '🎯 韵尾拼图大挑战~', {fontSize:'36px',fontFamily:'Barlow',color:'#333'}).setOrigin(0.5);
+        this.add.text(cx, cy-60, '💡 选择难度开始挑战吧！', {fontSize:'16px',fontFamily:'Noto Sans KR',color:'#666'}).setOrigin(0.5);
+        
+        const difficulties = [
+            {key: 'EASY', label: '🔥 简单模式', desc: '2字母 + 韵尾', color: '#10B981'},
+            {key: 'MEDIUM', label: '⚡ 中等模式', desc: '3-4字母组合', color: '#FF6B6B'},
+            {key: 'HARD', label: '💎 困难模式', desc: '复杂音节挑战', color: '#8B5CF6'}
+        ];
+        
+        difficulties.forEach((diff, idx) => {
+            const y = cy + 40 + idx * 80;
+            const btn = this.add.text(cx, y, diff.label, {
+                fontSize:'28px', fontFamily:'Barlow', color:'#FFF',
+                backgroundColor:diff.color, padding:{x:40,y:20}, borderRadius:'25px'
+            }).setOrigin(0.5).setInteractive();
+            
+            const handler = () => this.startChallenge(diff.key);
+            btn.on('pointerdown', handler);
+            this.dragListeners.push({event:'pointerdown', func:handler, target:btn});
+        });
+        
+        const backBtn = this.add.text(50, 30, '🔙 返回韵尾列表', {
+            fontSize:'16px', color:'#4ECDC4',
+            backgroundColor:'#FFFFFF', padding:{x:15,y:8}, borderRadius:'12px'
+        }).setOrigin(0).setInteractive();
+        const backHandler = ()=>this.scene.start('FinalScene');
+        backBtn.on('pointerdown', backHandler);
+        this.dragListeners.push({event:'pointerdown', func:backHandler, target:backBtn});
+    }
+    
+    startChallenge(difficulty){
+        // 初始化状态
+        GameState.currentDifficulty = difficulty;
+        GameState.puzzleIndex = 0;
+        GameState.puzzleScore = 0;
+        GameState.combo = 0;
+        this.startTime = Date.now();
+        
+        // 开始 Analytics 会话
+        this.currentPuzzleId = this.analytics.trackPuzzleStart('level3', difficulty.toLowerCase());
+        
+        // 生成题库
+        this.generatePuzzlePool(difficulty);
+        
+        // 开始第一关
+        this.loadNextPuzzle();
+    }
+    
+    generatePuzzlePool(difficulty){
+        this.puzzlePool = [];
+        const finals = KOREAN_LEVEL3.finals;
+        const consonants = ['ㄱ','ㄴ','ㄷ','ㄹ','ㅁ','ㅂ','ㅅ','ㅇ','ㅈ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+        const vowels = ['ㅏ','ㅐ','ㅑ','ㅒ','ㅓ','ㅔ','ㅕ','ㅖ','ㅗ','ㅘ','ㅙ','ㅚ','ㅛ','ㅜ','ㅝ','ㅞ','ㅟ','ㅠ','ㅡ','ㅢ','ㅣ'];
+        
+        // 根据难度配置
+        const config = {
+            'EASY': { count: 3, finals: finals.filter(f => f.code.length===1), total: 5 },
+            'MEDIUM': { count: 4, finals: finals.filter(f => ['ㄳ','ㄵ','ㄶ','ㄺ','ㄻ','ㄼ','ㄽ','ㄾ','ㄿ','ㅀ'].includes(f.code)), total: 3 },
+            'HARD': { count: 3, finals: finals, total: 2 }
+        }[difficulty];
+        
+        for(let i=0; i<config.total; i++){
+            const final = Phaser.Utils.Array.GetRandom(config.finals);
+            const initial = Phaser.Utils.Array.GetRandom(consonants);
+            const medial = Phaser.Utils.Array.GetRandom(vowels);
+            const syllable = initial + medial + final.code;
+            
+            const components = [
+                {id: uuidv4(), type: 'INITIAL', value: initial, target_pos: 0},
+                {id: uuidv4(), type: 'MEDIAL', value: medial, target_pos: 1},
+                {id: uuidv4(), type: 'FINAL', value: final.code, target_pos: 2}
+            ];
+            
+            // 打乱
+            Phaser.Utils.Array.Shuffle(components);
+            
+            this.puzzlePool.push({
+                puzzleId: uuidv4(),
+                difficulty,
+                target_syllable: syllable,
+                components,
+                correct_order: [initial, medial, final.code],
+                base_score: config.count === 3 ? 100 : 150,
+                time_limit: difficulty==='EASY'?30000:difficulty==='MEDIUM'?45000:60000
+            });
+        }
+    }
+    
+    loadNextPuzzle(){
+        if(this.puzzlePool.length === 0){
+            this.showSummary();
+            return;
+        }
+        
+        this.currentPuzzle = this.puzzlePool.pop();
+        this.renderPuzzle();
+        this.startTimer();
+    }
+    
+    renderPuzzle(){
+        const cx = this.cameras.main.centerX, cy = this.cameras.main.centerY;
+        
+        // 清理旧对象
+        this.draggables.forEach(d => d.destroy());
+        this.targets.forEach(t => t.destroy());
+        this.draggables = [];
+        this.targets = [];
+        
+        // 标题
+        this.puzzleTitle = this.add.text(cx, cy-180, `🎯 第 ${GameState.currentPuzzleIndex + 1} 关`, {
+            fontSize:'28px', fontFamily:'Barlow', color:'#333'
+        }).setOrigin(0.5);
+        
+        // 进度
+        this.puzzleProgress = this.add.text(cx, cy-140, `难度：${this.getDifficultyLabel()}`, {
+            fontSize:'18px', fontFamily:'Noto Sans KR', color:'#666'
+        }).setOrigin(0.5);
+        
+        // 目标区域 (3个槽位)
+        const slotSize = 80;
+        const slotSpacing = 100;
+        const startX = cx - slotSpacing;
+        
+        for(let i=0; i<this.currentPuzzle.correct_order.length; i++){
+            const slot = this.add.rectangle(startX + i*slotSpacing, cy, slotSize, slotSize, 0xEEEEEE)
+                .setStrokeStyle(3, 0xCCCCCC)
+                .setInteractive({ dropTarget: true });
+            
+            slot.on('drop', (pointer, dragObj) => {
+                this.handleDrop(slot, i, dragObj);
+            });
+            this.targets.push(slot);
+        }
+        
+        // 拖拽字母块
+        const dragY = cy + 150;
+        this.currentPuzzle.components.forEach((comp, idx) => {
+            const dragX = 150 + idx * 120;
+            const drag = this.add.text(dragX, dragY, comp.value, {
+                fontSize:'80px', fontFamily:'Noto Sans KR', color:'#4ECDC4',
+                backgroundColor:'#FFF', padding:{x:20,y:10}, borderRadius:'12px'
+            }).setOrigin(0.5).setInteractive({ draggable: true });
+            
+            drag.on('drag', (pointer, gameObj, dragX, dragY) => {
+                gameObj.x = dragX;
+                gameObj.y = dragY;
+                gameObj.setScale(1.15);
+                gameObj.setDepth(100);
+            });
+            
+            drag.on('dragend', (pointer, gameObj) => {
+                gameObj.setScale(1);
+                gameObj.setDepth(0);
+                // 检查是否在目标槽上
+                let dropped = false;
+                this.targets.forEach((slot, slotIdx) => {
+                    if(Phaser.Math.Distance.Between(gameObj.x, gameObj.y, slot.x, slot.y) < 50){
+                        this.handleDrop(slot, slotIdx, gameObj);
+                        dropped = true;
+                    }
+                });
+                if(!dropped){
+                    // 回弹到原位
+                    this.tweens.add({
+                        targets: gameObj,
+                        x: dragX, y: dragY,
+                        duration: 300,
+                        ease: 'Back.easeOut'
+                    });
+                }
+            });
+            
+            this.dragListeners.push({event:'drag', func:drag.on('drag', arguments.callee), target:drag});
+            this.dragListeners.push({event:'dragend', func:drag.on('dragend', arguments.callee), target:drag});
+            this.draggables.push({obj: drag, comp: comp});
+        });
+        
+        // 操作按钮
+        const resetBtn = this.add.text(cx-100, cy+200, '🔄 重新排列哦', {
+            fontSize:'18px', fontFamily:'Barlow', color:'#10B981',
+            backgroundColor:'#FFFFFF', padding:{x:20,y:10}, borderRadius:'12px'
+        }).setOrigin(0.5).setInteractive();
+        const resetHandler = ()=>this.resetPuzzle();
+        resetBtn.on('pointerdown', resetHandler);
+        this.dragListeners.push({event:'pointerdown', func:resetHandler, target:resetBtn});
+        
+        const hintBtn = this.add.text(cx+100, cy+200, '💡 小助手~', {
+            fontSize:'18px', fontFamily:'Barlow', color:'#FF6B6B',
+            backgroundColor:'#FFFFFF', padding:{x:20,y:10}, borderRadius:'12px'
+        }).setOrigin(0.5).setInteractive();
+        const hintHandler = ()=>this.showHint();
+        hintBtn.on('pointerdown', hintHandler);
+        this.dragListeners.push({event:'pointerdown', func:hintHandler, target:hintBtn});
+    }
+    
+    getDifficultyLabel(){
+        return {EASY:'🔥 简单', MEDIUM:'⚡ 中等', HARD:'💎 困难'}[GameState.currentDifficulty];
+    }
+    
+    handleDrop(slot, slotIndex, dragObj){
+        // 移除该槽位原有的字母
+        const existing = this.draggables.find(d => d.obj.x === slot.x && d.obj.y === slot.y);
+        if(existing){
+            existing.obj.x = 150 + this.draggables.indexOf(existing) * 120;
+            existing.obj.y = this.cameras.main.centerY + 150;
+        }
+        
+        // 放置新字母
+        dragObj.x = slot.x;
+        dragObj.y = slot.y;
+        dragObj.setScale(1);
+        dragObj.setDepth(50);
+        
+        // 检查拼图是否完成
+        this.checkPuzzle();
+    }
+    
+    checkPuzzle(){
+        // 收集当前顺序
+        const currentOrder = [];
+        this.targets.forEach((slot, idx) => {
+            const placed = this.draggables.find(d => 
+                Math.abs(d.obj.x - slot.x) < 5 && Math.abs(d.obj.y - slot.y) < 5
+            );
+            if(placed) currentOrder.push(placed.comp.value);
+        });
+        
+        if(currentOrder.length !== this.currentPuzzle.correct_order.length) return;
+        
+        const correct = currentOrder.every((val, idx) => val === this.currentPuzzle.correct_order[idx]);
+        
+        if(correct){
+            this.puzzleSuccess();
+        } else {
+            this.puzzleFail();
+        }
+    }
+    
+    puzzleSuccess(){
+        const now = Date.now();
+        const elapsed = now - this.startTime;
+        GameState.completedPuzzles.push(this.currentPuzzle);
+        GameState.totalPuzzlesCompleted++;
+        GameState.combo++;
+        
+        // 计算得分
+        const base = this.currentPuzzle.base_score;
+        const timeLimit = this.currentPuzzle.time_limit;
+        const timeBonus = base * (1 - elapsed/timeLimit) * (GameState.currentDifficulty==='EASY'?2.0:GameState.currentDifficulty==='MEDIUM'?1.5:1.0);
+        const totalScore = Math.floor(base + timeBonus);
+        GameState.puzzleScore += totalScore;
+        
+        // 更新准确率
+        const totalAttempts = GameState.totalPuzzlesCompleted + (GameState.combo || 0);
+        GameState.accuracyRate = totalAttempts > 0 ? GameState.totalPuzzlesCompleted / totalAttempts : 0;
+        
+        // Analytics 追踪
+        this.analytics.trackPuzzleComplete(
+            this.currentPuzzleId, 
+            true, 
+            elapsed, 
+            this.currentPuzzle.hintsUsed || 0
+        );
+        
+        this.showToast(`🎉 拼对啦！太棒了~ 得分: +${totalScore}`, 'success');
+        
+        // 下一关
+        this.time.delayedCall(2000, ()=>{
+            GameState.currentPuzzleIndex++;
+            this.loadNextPuzzle();
+        });
+    }
+    
+    puzzleFail(){
+        GameState.combo = 0;
+        this.showToast('😅 不太对，再试试看！', 'warning');
+        // 震动反馈（如果支持）
+        if(navigator.vibrate) navigator.vibrate(200);
+    }
+    
+    resetPuzzle(){
+        // 重置拖拽到初始位置
+        this.draggables.forEach((d, idx) => {
+            const originalX = 150 + idx * 120;
+            const originalY = this.cameras.main.centerY + 150;
+            d.obj.x = originalX;
+            d.obj.y = originalY;
+        });
+        this.showToast('🔄 已重置排列~', 'info');
+        // Analytics
+        if(this.currentPuzzleId) this.analytics.trackResetUsed();
+    }
+    
+    showHint(){
+        // 高亮正确顺序的一个字母
+        const correctFirst = this.currentPuzzle.correct_order[0];
+        const hintDrag = this.draggables.find(d => d.comp.value === correctFirst);
+        if(hintDrag){
+            this.cameras.main.flash(200, 255, 255, 255);
+            hintDrag.obj.setScale(1.3);
+            this.tweens.add({
+                targets: hintDrag.obj,
+                scale: 1,
+                duration: 1000,
+                yoyo: true,
+                repeat: 3
+            });
+        }
+        this.showToast('💡 小提示给你~', 'info');
+        
+        // Analytics
+        if(this.currentPuzzleId) this.analytics.trackHintUsed(this.currentPuzzleId);
+    }
+    
+    startTimer(){
+        this.timerEvent = this.time.addEvent({
+            delay: 1000,
+            callback: ()=>{
+                this.elapsed = Date.now() - this.startTime;
+                if(!this.timeText) return;
+                const secs = Math.floor(this.elapsed/1000);
+                this.timeText.setText(`⏱️ 用时: ${secs}秒`);
+            },
+            loop: true
+        });
+        this.timers.push(this.timerEvent);
+    }
+    
+    stopTimer(){
+        if(this.timerEvent){
+            this.timerEvent.destroy();
+        }
+    }
+    
+    showSummary(){
+        const cx = this.cameras.main.centerX, cy = this.cameras.main.centerY;
+        this.add.text(cx, cy-100, '🎊 拼图挑战完成！', {fontSize:'36px', fontFamily:'Barlow', color:'#10B981'}).setOrigin(0.5);
+        this.add.text(cx, cy-40, `总得分: ${GameState.puzzleScore} 分`, {fontSize:'28px', fontFamily:'Noto Sans KR', color:'#333'}).setOrigin(0.5);
+        this.add.text(cx, cy+40, `完成拼图: ${GameState.totalPuzzlesCompleted} 个`, {fontSize:'20px', fontFamily:'Noto Sans KR', color:'#666'}).setOrigin(0.5);
+        this.add.text(cx, cy+100, '🏆 你是拼图小达人！✨', {fontSize:'24px', fontFamily:'Barlow', color:'#FF6B6B'}).setOrigin(0.5);
+        
+        // 结束 Analytics 会话
+        this.analytics.endSession();
+        
+        const backBtn = this.add.text(cx, cy+180, '🔙 返回韵尾列表', {
+            fontSize:'20px', fontFamily:'Barlow', color:'#4ECDC4',
+            backgroundColor:'#FFFFFF', padding:{x:20,y:12}, borderRadius:'12px'
+        }).setOrigin(0.5).setInteractive();
+        const backHandler = ()=>this.scene.start('FinalScene');
+        backBtn.on('pointerdown', backHandler);
+        this.dragListeners.push({event:'pointerdown', func:backHandler, target:backBtn});
+    }
+}
+
 class CompleteScene extends BaseScene {
     constructor(){super('CompleteScene'); this.dragListeners = []; this.timers = [];}
     shutdown(){
@@ -746,7 +1292,7 @@ class AboutScene extends BaseScene {
 
 // ========== 启动 ==========
 initData(1);
-GAME_CONFIG.scene = [BootScene, MenuScene, LearnScene, PuzzleScene, SyllableScene, WordScene, FinalScene, CompleteScene, AboutScene];
+GAME_CONFIG.scene = [BootScene, MenuScene, LearnScene, PuzzleScene, SyllableScene, WordScene, FinalScene, FinalChallengeScene, CompleteScene, AboutScene];
 console.log('[init] 启动...');
 try { window.game = new Phaser.Game(GAME_CONFIG); console.log('[init] ✅'); }
 catch(e) { console.error('[init] ❌',e); document.getElementById('game-container').innerHTML = `<h1 style="color:red">启动失败: ${e.message}</h1>`; }
