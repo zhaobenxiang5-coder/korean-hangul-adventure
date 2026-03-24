@@ -381,7 +381,7 @@ class PuzzleScene extends BaseScene {
             const cur=kids.map(c=>c.text).join('');
             if(cur===target){
                 dz.setFillStyle(0x10B981);
-                const timer1 = this.time.delayedCall(800,()=>{this.showToast('🎉 正确！太棒了~','success');this.scene.start('MenuScene')});
+                const timer1 = this.time.delayedCall(800,()=>{alert('✅ 正确！');this.scene.start('MenuScene')});
                 this.timers.push(timer1);
             } else {
                 dz.setFillStyle(0xEF4444);
@@ -421,7 +421,7 @@ class SyllableScene extends BaseScene {
             this.dragListeners.push({event:'drag', func:dragHandler, target:p});
             this.dragListeners.push({event:'dragend', func:dragendHandler, target:p});
         });
-        const backBtn = this.add.text(cx,550,'🏠 菜单',{fontSize:'20px',color:'#4ECDC4',backgroundColor:'#FFFFFF',padding:{x:20,y:12},borderRadius:'12px'}).setOrigin(0.5).setInteractive();
+        const backBtn = this.add.text(cx,550,'🏠 菜单',{fontSize:'16px',color:'#666'}).setOrigin(0.5).setInteractive();
         const backHandler = ()=>this.scene.start('MenuScene');
         backBtn.on('pointerdown', backHandler);
         this.dragListeners.push({event:'pointerdown', func:backHandler, target:backBtn});
@@ -433,7 +433,7 @@ class SyllableScene extends BaseScene {
             const cur=kids.map(c=>c.text).join('');
             if(cur===this.target){
                 dz.setFillStyle(0x10B981);
-                const timer1 = this.time.delayedCall(800,()=>{this.showToast('🎉 正确！太棒了~','success');this.scene.start('MenuScene')});
+                const timer1 = this.time.delayedCall(800,()=>{alert('✅ 正确！');this.scene.start('MenuScene')});
                 this.timers.push(timer1);
             } else {
                 dz.setFillStyle(0xEF4444);
@@ -464,7 +464,7 @@ class WordScene extends BaseScene {
         this.scramble();
         this.ansCont=this.add.container(cx,cy+60); this.makeSlots();
         this.optCont=this.add.container(cx,cy+160); this.makeOpts();
-        const backBtn = this.add.text(cx,520,'🏠 菜单',{fontSize:'20px',color:'#4ECDC4',backgroundColor:'#FFFFFF',padding:{x:20,y:12},borderRadius:'12px'}).setOrigin(0.5).setInteractive();
+        const backBtn = this.add.text(cx,520,'🏠 菜单',{fontSize:'16px',color:'#666'}).setOrigin(0.5).setInteractive();
         const backHandler = ()=>this.scene.start('MenuScene');
         backBtn.on('pointerdown', backHandler);
         this.dragListeners.push({event:'pointerdown', func:backHandler, target:backBtn});
@@ -500,11 +500,11 @@ class WordScene extends BaseScene {
         if(ans.length===this.current.word.length){
             if(ans===this.current.word){
                 this.score+=50; this.qIdx++;
-                this.showToast('🎉 正确！太棒了~','success');
+                alert('✅ 正确！');
                 if(this.qIdx<this.total){
                     this.current=Phaser.Utils.Array.GetRandom(this.words);
                     this.scramble(); this.makeSlots(); this.makeOpts();
-                } else { this.showToast('🎊 完成啦！继续加油~','success'); this.scene.start('MenuScene'); }
+                } else { alert('🎉 完成！'); this.scene.start('MenuScene'); }
             } else { this.optCont.children.each(c=>{c.destroy()}); this.makeOpts(); }
         }
     }
